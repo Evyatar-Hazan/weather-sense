@@ -38,7 +38,7 @@ A comprehensive weather analysis service that combines natural language processi
 
 1. **Clone and setup environment**:
 ```bash
-git clone <repository-url>
+git clone https://github.com/Evyatar-Hazan/weather-sense.git
 cd weather-sense
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
