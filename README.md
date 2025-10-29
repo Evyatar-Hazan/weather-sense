@@ -41,13 +41,27 @@ A comprehensive weather analysis service that combines natural language processi
 - Docker (optional)
 - Google Cloud SDK (for deployment)
 
+### System Requirements
+
+- **Operating System**: Linux (Ubuntu/Debian), macOS, Windows with WSL
+- **Python**: 3.11+ (tested on 3.11, 3.12)  
+- **Memory**: 2GB RAM minimum for development
+- **Network**: Internet connection for weather API calls
+- **Disk Space**: ~500MB for dependencies
+
 ### Local Development
 
 1. **Clone and setup environment**:
 ```bash
 git clone https://github.com/Evyatar-Hazan/weather-sense.git
 cd weather-sense
-python -m venv venv
+
+# Create virtual environment
+# For Ubuntu/Debian systems, use python3:
+python3 -m venv venv
+# For other systems with python alias:
+# python -m venv venv
+
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 ```
@@ -62,8 +76,18 @@ export TZ="UTC"
 
 3. **Run the application**:
 ```bash
+# Ensure you're in the project directory
+cd weather-sense
+pwd  # Should show: .../weather-sense
+
 # Start the FastAPI server
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# If you get "python: command not found", use python3:
+# python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# If port 8000 is busy, try another port:
+# python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 4. **Test the service**:
@@ -71,11 +95,17 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 # Health check
 curl http://localhost:8000/healthz
 
+# If using different port, adjust accordingly:
+# curl http://localhost:8080/healthz
+
 # Weather query
 curl -X POST "http://localhost:8000/v1/weather/ask" \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-secret-api-key" \
   -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+
+# Check if port is in use (if needed):
+# lsof -i :8000
 ```
 
 ### Testing
@@ -88,6 +118,9 @@ pip install -e ".[test]"
 
 # Run all tests
 pytest
+
+# For systems that require python3:
+# python3 -m pytest
 
 # Run specific test files
 pytest tests/test_parser.py
@@ -103,8 +136,15 @@ pytest --cov=. --cov-report=html
 Test the MCP weather tool directly:
 
 ```bash
+# Make sure you're in the project directory and virtual environment is active
+cd weather-sense
+source venv/bin/activate
+
 # Test MCP tool via stdin/stdout
 echo '{"location": "Tel Aviv", "start_date": "2025-10-20", "end_date": "2025-10-24", "units": "metric"}' | python mcp_weather/server.py
+
+# For systems that require python3:
+# echo '{"location": "Tel Aviv", "start_date": "2025-10-20", "end_date": "2025-10-24", "units": "metric"}' | python3 mcp_weather/server.py
 ```
 
 ## 🚀 Live Demo
@@ -849,7 +889,16 @@ weather-sense/
 3. **Analysis Features**: Enhance `WeatherAnalyst` in `crew/agents.py`
 4. **API Endpoints**: Add routes in `api/main.py`
 
-### Contributing
+### Documentation
+
+For more information, see:
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Model Context Protocol (MCP) Documentation](https://spec.modelcontextprotocol.io/)
+- [CrewAI Framework](https://github.com/joaomdmoura/crewAI)
+- [Open-Meteo Weather API](https://open-meteo.com/en/docs)
+- [Google Cloud Run Deployment Guide](https://cloud.google.com/run/docs)
+
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -858,6 +907,56 @@ weather-sense/
 5. Submit a pull request
 
 ## Troubleshooting
+
+### Common Installation Issues
+
+**Problem**: `python: command not found`  
+**Solution**: Use `python3` instead of `python` on Ubuntu/Debian systems:
+```bash
+python3 -m venv venv
+python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Problem**: `Port 8000 already in use` or `Address already in use`  
+**Solution**: Use a different port:
+```bash
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
+# Then test with: curl http://localhost:8080/healthz
+```
+
+**Problem**: `Module not found` after installation  
+**Solution**: Ensure virtual environment is activated:
+```bash
+source venv/bin/activate  # Should show (venv) in prompt
+which python  # Should point to venv/bin/python
+pip list | grep weather-sense  # Should show weather-sense package
+```
+
+**Problem**: `uvicorn: command not found`  
+**Solution**: Reinstall the project in the virtual environment:
+```bash
+cd weather-sense  # Make sure you're in the project directory
+source venv/bin/activate
+pip install -e .
+```
+
+**Problem**: Tests fail or server won't start  
+**Solution**: Check you're in the correct directory and environment:
+```bash
+pwd  # Should end with /weather-sense
+ls  # Should show api/, crew/, mcp_weather/, tests/ folders
+source venv/bin/activate
+pip install -e ".[test]"
+```
+
+**Problem**: Virtual environment activation fails  
+**Solution**: Recreate the virtual environment:
+```bash
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+```
 
 ### Common Issues
 
