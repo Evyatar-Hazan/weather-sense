@@ -3,7 +3,7 @@ Security and authentication for FastAPI application.
 """
 import os
 from typing import Optional
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Security, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 
@@ -47,7 +47,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
         )
 
 
-def verify_api_key_header(x_api_key: Optional[str] = None) -> str:
+def verify_api_key_header(x_api_key: Optional[str] = Header(None)) -> str:
     """Verify API key from x-api-key header."""
     try:
         expected_key = get_api_key()

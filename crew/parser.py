@@ -89,11 +89,16 @@ class DateRangeParser:
     
     def _extract_location(self, query: str) -> Optional[str]:
         """Extract location from query."""
-        # Look for common location patterns
+        # Look for common location patterns - more specific patterns first
         location_patterns = [
-            r'\bin\s+([A-Za-z\s,.-]+?)(?:\s+from|\s+between|\s*$)',
-            r'weather\s+(?:in\s+)?([A-Za-z\s,.-]+?)(?:\s+from|\s+between)',
-            r'([A-Za-z\s,.-]+?)(?:\s+weather|\s+from|\s+between)',
+            # Pattern: "in <location> for/from/during/this/next/last"
+            r'\bin\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d))',
+            # Pattern: "weather in <location>"
+            r'weather\s+in\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)',
+            # Pattern: "<location> weather"
+            r'([A-Za-z\s,.-]+?)\s+weather',
+            # Pattern: "in <location>" at end of query
+            r'\bin\s+([A-Za-z\s,.-]+?)\s*$',
         ]
         
         # Check for coordinate pattern first
@@ -109,7 +114,13 @@ class DateRangeParser:
                 # Clean up the location
                 location = re.sub(r'\s+', ' ', location)
                 location = location.strip(' ,.-')
-                if len(location) > 2:  # Reasonable location length
+                
+                # Filter out time-related words that are not locations
+                time_words = ['last week', 'this week', 'next week', 'last monday', 'this monday', 
+                             'next monday', 'yesterday', 'today', 'tomorrow', 'monday', 'tuesday',
+                             'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                
+                if location.lower() not in time_words and len(location) > 2:
                     return location
         
         return None
@@ -128,6 +139,14 @@ class DateRangeParser:
                 return self._get_last_weekdays()
             elif 'this monday to friday' in query or 'from this monday to friday' in query:
                 return self._get_this_weekdays()
+            
+            # Handle "next X days" pattern
+            next_days_match = re.search(r'next\s+(\d+)\s+days?', query)
+            if next_days_match:
+                num_days = int(next_days_match.group(1))
+                start_date = (self.today + timedelta(days=1)).strftime("%Y-%m-%d")  # Tomorrow
+                end_date = (self.today + timedelta(days=num_days)).strftime("%Y-%m-%d")
+                return start_date, end_date
             
             # Handle specific date ranges
             date_range_patterns = [

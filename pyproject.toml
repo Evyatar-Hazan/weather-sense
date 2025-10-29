@@ -17,6 +17,9 @@ dependencies = [
     "python-multipart>=0.0.6",
 ]
 
+[tool.setuptools.packages.find]
+include = ["api*", "crew*", "mcp_weather*", "tests*"]
+
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",

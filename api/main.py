@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .logging_config import setup_logging, log_request
@@ -157,38 +158,29 @@ async def weather_ask(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "internal_server_error", 
-                "hint": "An unexpected error occurred"
-            }
+            detail={"error": "internal_server_error", "hint": "An unexpected error occurred"}
         )
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Custom HTTP exception handler for consistent error responses."""
-    return exc.detail
+    from fastapi.responses import JSONResponse
+    
+    # Handle both dict and string details
+    if isinstance(exc.detail, dict):
+        content = exc.detail
+    else:
+        content = {"error": exc.detail}
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content
+    )
 
 
-# Additional error handlers for specific status codes
-@app.exception_handler(401)
-async def unauthorized_handler(request, exc):
-    return {"error": "unauthorized", "hint": "Invalid or missing API key"}
-
-
-@app.exception_handler(400)
-async def bad_request_handler(request, exc):
-    return {"error": "bad_request", "hint": "Invalid request parameters"}
-
-
-@app.exception_handler(429)
-async def rate_limit_handler(request, exc):
-    return {"error": "rate_limited", "hint": "Too many requests, please try again later"}
-
-
-@app.exception_handler(502)
-async def bad_gateway_handler(request, exc):
-    return {"error": "service_unavailable", "hint": "Weather service temporarily unavailable"}
+# Additional error handlers for specific status codes - removed to avoid conflicts
+# The HTTPException handler above handles all HTTP errors properly
 
 
 # Startup event
