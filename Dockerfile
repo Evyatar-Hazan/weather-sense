@@ -5,7 +5,8 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
-    TZ=UTC
+    TZ=UTC \
+    DEPLOYMENT_ENV=docker
 
 # Create app directory
 WORKDIR /app
@@ -26,6 +27,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy application code
 COPY . .
 
+# Make docker entrypoint executable
+RUN chmod +x docker_entrypoint.py
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
@@ -38,5 +42,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Expose port
 EXPOSE ${PORT}
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application via Docker entrypoint
+CMD ["python", "docker_entrypoint.py"]

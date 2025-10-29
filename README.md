@@ -204,57 +204,112 @@ docker run -p 8000:8000 \
 
 ### Google Cloud Run Deployment
 
-1. **Setup Google Cloud**:
-```bash
-# Set your project ID
-export PROJECT_ID="your-gcp-project-id"
-export REGION="us-central1"
+WeatherSense is designed for deployment on Google Cloud Run as a single Docker image that launches both the API server and spawns the MCP server as a child process using stdio communication.
 
-# Configure gcloud
+#### Prerequisites
+
+- Google Cloud SDK installed and configured
+- Docker installed
+- A Google Cloud Project with billing enabled
+- Cloud Run API enabled
+
+#### Deployment Steps
+
+1. **Setup Google Cloud environment**:
+```bash
+# Set your project ID and region
+export PROJECT_ID="your-gcp-project-id"
+export REGION="us-central1"  # or your preferred region
+export SERVICE_NAME="weather-sense"
+export API_KEY="your-secure-api-key-here"
+
+# Configure gcloud CLI
 gcloud config set project $PROJECT_ID
+gcloud services enable run.googleapis.com
 gcloud auth configure-docker
 ```
 
-2. **Build and push image**:
+2. **Build and push Docker image**:
 ```bash
-# Build and tag for Google Container Registry
-docker build -t gcr.io/$PROJECT_ID/weather-sense:latest .
+# Build the Docker image with Cloud Run optimizations
+docker build \
+  --platform linux/amd64 \
+  -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest \
+  .
 
-# Push to registry
-docker push gcr.io/$PROJECT_ID/weather-sense:latest
+# Push to Google Container Registry
+docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
 ```
 
-3. **Deploy to Cloud Run**:
+3. **Deploy to Cloud Run with exact configuration**:
 ```bash
-gcloud run deploy weather-sense \
-  --image gcr.io/$PROJECT_ID/weather-sense:latest \
+gcloud run deploy $SERVICE_NAME \
+  --image gcr.io/$PROJECT_ID/$SERVICE_NAME:latest \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
-  --set-env-vars API_KEY=your-secret-api-key \
+  --set-env-vars="API_KEY=$API_KEY,LOG_LEVEL=INFO,DEPLOYMENT_ENV=docker" \
   --memory 1Gi \
-  --cpu 1 \
+  --cpu 1000m \
   --min-instances 0 \
   --max-instances 10 \
-  --port 8000
+  --port 8000 \
+  --timeout 300s \
+  --concurrency 100
 ```
 
-4. **Test deployment**:
+4. **Verify deployment**:
 ```bash
 # Get the service URL
-SERVICE_URL=$(gcloud run services describe weather-sense \
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
   --platform managed \
   --region $REGION \
   --format 'value(status.url)')
 
-# Test health check
-curl $SERVICE_URL/healthz
+echo "Service deployed at: $SERVICE_URL"
 
-# Test weather query
+# Test health check (should work without authentication)
+curl -f "$SERVICE_URL/healthz"
+
+# Test weather query (requires x-api-key header)
 curl -X POST "$SERVICE_URL/v1/weather/ask" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-secret-api-key" \
-  -d '{"query": "weather in San Francisco this week"}'
+  -H "x-api-key: $API_KEY" \
+  -d '{"query": "weather in San Francisco this week"}' \
+  | jq '.'
+```
+
+#### Cloud Run Configuration Details
+
+- **Authentication**: Allows unauthenticated invocations (as required), but API endpoints require `x-api-key` header
+- **Process Management**: Single Docker image runs both API server and MCP server as child process
+- **Communication**: MCP server communicates via stdio (stdin/stdout) as required
+- **Scaling**: Auto-scales from 0 to 10 instances based on traffic
+- **Memory**: 1GB per instance (sufficient for weather data processing)
+- **CPU**: 1 vCPU allocated per instance
+- **Timeout**: 5 minutes for long-running weather analysis requests
+
+#### Environment Variables for Production
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `API_KEY` | Your secure key | Required for API authentication |
+| `LOG_LEVEL` | `INFO` | Production logging level |
+| `DEPLOYMENT_ENV` | `docker` | Enables persistent MCP server mode |
+| `TZ` | `UTC` | Timezone for consistent date handling |
+
+#### Monitoring and Logs
+
+```bash
+# View logs
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME" \
+  --project=$PROJECT_ID \
+  --limit=50
+
+# Monitor service metrics
+gcloud run services describe $SERVICE_NAME \
+  --platform managed \
+  --region $REGION
 ```
 
 ## Environment Variables

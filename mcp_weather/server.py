@@ -136,7 +136,22 @@ def process_weather_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def main():
-    """Main stdio loop for MCP server."""
+    """Main entry point for MCP server."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="MCP Weather Server")
+    parser.add_argument("--persistent", action="store_true", 
+                       help="Run in persistent mode (for Docker)")
+    args = parser.parse_args()
+    
+    if args.persistent:
+        run_persistent_mode()
+    else:
+        run_single_request_mode()
+
+
+def run_single_request_mode():
+    """Single request mode - read from stdin, process, write to stdout, exit."""
     try:
         # Read from stdin
         input_data = sys.stdin.read().strip()
@@ -162,6 +177,50 @@ def main():
         print(json.dumps(error_response))
         sys.stdout.flush()
         sys.exit(1)
+
+
+def run_persistent_mode():
+    """Persistent mode - keep reading from stdin and responding to stdout."""
+    logger = logging.getLogger(__name__)
+    logger.info("Starting MCP server in persistent mode")
+    
+    try:
+        while True:
+            try:
+                # Read line from stdin
+                line = sys.stdin.readline()
+                if not line:  # EOF
+                    break
+                
+                line = line.strip()
+                if not line:
+                    continue
+                
+                try:
+                    request_data = json.loads(line)
+                    response = process_weather_request(request_data)
+                except json.JSONDecodeError:
+                    response = {"error": "invalid_json", "hint": "Input must be valid JSON"}
+                
+                # Write response to stdout
+                print(json.dumps(response, ensure_ascii=False))
+                sys.stdout.flush()
+                
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                error_response = {
+                    "error": "server_error",
+                    "hint": f"Server error: {str(e)}"
+                }
+                print(json.dumps(error_response))
+                sys.stdout.flush()
+                
+    except Exception as e:
+        logger.error(f"Fatal error in persistent mode: {e}")
+        sys.exit(1)
+    
+    logger.info("MCP server persistent mode ended")
 
 
 if __name__ == "__main__":

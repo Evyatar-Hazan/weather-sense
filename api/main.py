@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from .logging_config import setup_logging, log_request
 from .security import verify_api_key_header
 from crew.flow import process_weather_query
+from crew.mcp_client import start_persistent_mcp_server, stop_persistent_mcp_server
 
 
 # Setup logging
@@ -202,6 +203,16 @@ async def startup_event():
     os.environ.setdefault("WEATHER_PROVIDER", "open-meteo")
     os.environ.setdefault("LOG_LEVEL", "INFO")
     
+    # Start persistent MCP server if in Docker environment
+    if os.getenv("DEPLOYMENT_ENV") == "docker":
+        logger.info("Starting persistent MCP server for Docker environment")
+        if not start_persistent_mcp_server():
+            logger.error("Failed to start persistent MCP server")
+            raise RuntimeError("Failed to start persistent MCP server")
+        logger.info("Persistent MCP server started successfully")
+    else:
+        logger.info("Local environment detected, will use subprocess mode for MCP")
+    
     # Log configuration
     logger.info(f"Configuration: TZ={os.getenv('TZ')}, WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}")
     if os.getenv("WEATHER_API_KEY"):
@@ -217,6 +228,14 @@ async def startup_event():
 async def shutdown_event():
     """Application shutdown event."""
     logger.info("WeatherSense API shutting down")
+    
+    # Stop persistent MCP server if running
+    if os.getenv("DEPLOYMENT_ENV") == "docker":
+        logger.info("Stopping persistent MCP server")
+        stop_persistent_mcp_server()
+        logger.info("Persistent MCP server stopped")
+    
+    logger.info("WeatherSense API shutdown complete")
 
 
 if __name__ == "__main__":
