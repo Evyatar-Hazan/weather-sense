@@ -181,7 +181,7 @@ class TestDeploymentDocumentation:
         assert "verify_api_key" in api_content, "API key verification not found"
         
         # Check for health endpoint without auth
-        assert "/healthz" in api_content, "Health endpoint not found"
+        assert "/health" in api_content, "Health endpoint not found"
         
         # Check for weather endpoint with auth
         assert "/v1/weather/ask" in api_content, "Weather endpoint not found"

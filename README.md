@@ -84,7 +84,10 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
 
 #### Health Check
 ```bash
-curl http://localhost:8000/healthz
+# Health check endpoint (works both locally and in production):
+curl http://localhost:8000/health
+# or for production:
+curl https://weather-sense-service-ektuy7j2kq-uc.a.run.app/health
 # Expected: {"ok": true}
 ```
 
@@ -182,13 +185,20 @@ DEPLOYMENT_ENV=docker
 
 | Test File | Purpose | Type | Coverage |
 |-----------|---------|------|----------|
-| `test_parser.py` | Natural language parsing logic | Unit | Date parsing, location extraction |
+| `test_api_e2e.py` | Complete API workflow | E2E | Full request-response cycle |
+| `test_deployment_integration.py` | Deployment validation | Integration | Container setup, environment |
+| `test_documentation_only.py` | Documentation validation | Unit | README, config validation |
+| `test_mcp_cache.py` | Caching functionality | Unit | TTL, key generation |
 | `test_mcp_client.py` | MCP tool communication | Integration | Stdio interface, timeout handling |
 | `test_mcp_server.py` | MCP server functionality | Unit | JSON processing, error handling |
-| `test_weather_provider.py` | Weather API integration | Integration | Open-Meteo API, geocoding |
-| `test_api_e2e.py` | Complete API workflow | E2E | Full request-response cycle |
+| `test_mcp_stdio.py` | MCP stdio communication | Integration | Input/output handling |
+| `test_parser.py` | Natural language parsing logic | Unit | Date parsing, location extraction |
+| `test_pytest_integration.py` | Test framework integration | Integration | Pytest configuration |
+| `test_range_parser.py` | Date range parsing | Unit | Relative dates, validation |
 | `test_weather_analyst.py` | Weather analysis logic | Unit | Pattern detection, summarization |
-| `test_mcp_cache.py` | Caching functionality | Unit | TTL, key generation |
+| `test_weather_api_integration.py` | Weather API integration | Integration | API calls, data validation |
+| `test_weather_fetcher.py` | Weather data fetching | Unit | Data retrieval logic |
+| `test_weather_provider.py` | Weather provider interface | Integration | Open-Meteo API, geocoding |
 
 ### Running Tests
 
@@ -207,13 +217,22 @@ pytest --cov=. --cov-report=html --cov-report=term
 #### Specific Test Categories
 ```bash
 # Unit tests only
-pytest tests/test_parser.py tests/test_mcp_cache.py
+pytest tests/test_parser.py tests/test_mcp_cache.py tests/test_weather_analyst.py tests/test_range_parser.py
 
 # Integration tests
-pytest tests/test_mcp_client.py tests/test_weather_provider.py
+pytest tests/test_mcp_client.py tests/test_weather_provider.py tests/test_mcp_stdio.py tests/test_weather_api_integration.py
 
 # End-to-end tests
-pytest tests/test_api_e2e.py
+pytest tests/test_api_e2e.py tests/test_deployment_integration.py
+
+# Documentation and configuration
+pytest tests/test_documentation_only.py tests/test_pytest_integration.py
+
+# MCP-specific tests
+pytest tests/test_mcp_server.py tests/test_mcp_client.py tests/test_mcp_stdio.py tests/test_mcp_cache.py
+
+# Weather-specific tests
+pytest tests/test_weather_provider.py tests/test_weather_fetcher.py tests/test_weather_analyst.py tests/test_weather_api_integration.py
 
 # Quick validation
 python validate_deployment.py
@@ -243,7 +262,7 @@ docker run -p 8000:8000 \
   weather-sense
 
 # Test container
-curl http://localhost:8000/healthz
+curl http://localhost:8000/health
 ```
 
 ### Google Cloud Run
@@ -312,14 +331,16 @@ curl -H "x-api-key: your-secret-api-key" ...
 
 ### Endpoints
 
-#### GET /healthz
-**Purpose**: Health check endpoint  
+#### GET /health, /ping
+**Purpose**: Health check endpoints  
 **Authentication**: ❌ Not required
 
 **Response**:
 ```json
 {"ok": true}
 ```
+
+**Note**: Cloud Run reserves paths ending with 'z' (like `/healthz`), so we use `/health` instead. See [Cloud Run Known Issues](https://cloud.google.com/run/docs/known-issues#ah) for details.
 
 #### POST /v1/weather/ask
 **Purpose**: Process natural language weather queries  
@@ -407,7 +428,7 @@ python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 **Solution**: Use different port:
 ```bash
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
-curl http://localhost:8080/healthz  # Test with new port
+curl http://localhost:8080/health  # Test with new port
 ```
 
 #### 3. Module Not Found

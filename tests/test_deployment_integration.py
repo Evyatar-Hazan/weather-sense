@@ -163,7 +163,7 @@ class TestSingleDockerImage(DeploymentIntegrationTest):
         
         # Test health endpoint (no auth required)
         try:
-            response = requests.get(f"{self.api_base_url}/healthz", timeout=10)
+            response = requests.get(f"{self.api_base_url}/health", timeout=10)
             assert response.status_code == 200
             assert response.json() == {"ok": True}
             logger.info("✅ Health endpoint accessible")
@@ -298,7 +298,7 @@ class TestAuthenticationBehavior(DeploymentIntegrationTest):
         
         # Test health endpoint without any headers
         try:
-            response = requests.get(f"{self.api_base_url}/healthz", timeout=10)
+            response = requests.get(f"{self.api_base_url}/health", timeout=10)
             assert response.status_code == 200
             assert response.json() == {"ok": True}
             

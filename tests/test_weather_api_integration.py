@@ -46,31 +46,31 @@ def sample_query():
     return "weather in Tel Aviv from Monday to Friday, metric"
 
 
-class TestHealthzEndpoint:
-    """Test suite for the /healthz endpoint."""
+class TestHealthEndpoint:
+    """Test suite for the /health endpoint."""
     
-    def test_healthz_returns_ok(self, client):
-        """Test that /healthz returns { "ok": true }."""
-        response = client.get("/healthz")
+    def test_health_returns_ok(self, client):
+        """Test that /health returns { "ok": true }."""
+        response = client.get("/health")
         
         assert response.status_code == 200
         data = response.json()
         assert data == {"ok": True}
         assert isinstance(data["ok"], bool)
     
-    def test_healthz_no_auth_required(self, client):
-        """Verify that no authentication is required for /healthz."""
+    def test_health_no_auth_required(self, client):
+        """Verify that no authentication is required for /health."""
         # Test without any headers
-        response = client.get("/healthz")
+        response = client.get("/health")
         assert response.status_code == 200
         
         # Test with invalid headers (should still work)
-        response = client.get("/healthz", headers={"x-api-key": "invalid"})
+        response = client.get("/health", headers={"x-api-key": "invalid"})
         assert response.status_code == 200
     
-    def test_healthz_response_format(self, client):
+    def test_health_response_format(self, client):
         """Validate response format and content type."""
-        response = client.get("/healthz")
+        response = client.get("/health")
         
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"

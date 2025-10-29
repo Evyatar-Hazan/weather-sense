@@ -22,7 +22,7 @@ class TestWeatherAPI:
     
     def test_health_check(self):
         """Test health check endpoint."""
-        response = self.client.get("/healthz")
+        response = self.client.get("/health")
         
         assert response.status_code == 200
         assert response.json() == {"ok": True}

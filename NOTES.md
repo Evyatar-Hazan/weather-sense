@@ -655,13 +655,13 @@ docker run -d -p 8000:8000 \
 
 # Check container health
 docker ps
-curl http://localhost:8000/healthz
+curl http://localhost:8000/health
 ```
 
 **API Usage:**
 ```bash
 # Health check
-curl -H "Accept: application/json" http://localhost:8000/healthz
+curl -H "Accept: application/json" http://localhost:8000/health
 
 # Weather query
 curl -X POST http://localhost:8000/weather \
@@ -734,4 +734,29 @@ grep "ERROR" api.log | jq .
 
 ---
 
-*This completes the comprehensive WeatherSense implementation with all required components, following the exact specifications provided.*
+## Implementation Notes
+
+### Health Check Endpoint Change
+
+**Original Requirement:** The assignment specification requested a `/healthz` endpoint for health checks.
+
+**Change Made:** We implemented `/health` instead of `/healthz`.
+
+**Reason for Change:** 
+Google Cloud Run has reserved URL paths that cannot be used by applications. According to the [official Google Cloud Run documentation on Known Issues](https://cloud.google.com/run/docs/known-issues#ah), the following URL paths are reserved:
+- `/eventlog`
+- Paths starting with `/_ah/`
+- **Some paths ending with z** (including `/healthz`)
+
+The documentation explicitly states: "To prevent conflicts with reserved paths, we recommend avoiding all paths that end in z".
+
+This is a known limitation that affects many applications deployed to Cloud Run, as evidenced by:
+- [Reddit community discussion](https://www.reddit.com/r/googlecloud/comments/1k7f570/the_crazy_pitfall_of_healthz_path_in_google_cloud/)
+- [StackOverflow questions](https://stackoverflow.com/questions/79472006/google-cloud-run-weird-behaviour-only-for-path-healthz)
+- Various open-source projects that had to rename their endpoints (e.g., Streamlit)
+
+**Impact:** This change does not affect functionality - `/health` provides the same health check capabilities as `/healthz` would have, returning `{"ok": true}` to indicate service health status.
+
+---
+
+*This completes the comprehensive WeatherSense implementation with all required components, following the exact specifications provided (with noted adaptations for Google Cloud Run compatibility).*
