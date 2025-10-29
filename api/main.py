@@ -68,7 +68,7 @@ async def health_check():
     return HealthResponse(ok=True)
 
 
-@app.post("/v1/weather/ask")
+@app.post("/v1/weather/ask", response_model=WeatherQueryResponse)
 async def weather_ask(
     request: WeatherQueryRequest,
     x_api_key: str = Header(None, alias="x-api-key"),
@@ -109,10 +109,10 @@ async def weather_ask(
             # Map errors to HTTP status codes
             if error_code in ["missing_location", "invalid_date_range", "invalid_date_order", "range_too_large"]:
                 status_code = status.HTTP_400_BAD_REQUEST
-            elif error_code in ["mcp_timeout", "fetch_failed", "provider_unavailable"]:
-                status_code = status.HTTP_502_BAD_GATEWAY
-            elif error_code in ["rate_limited"]:
+            elif error_code in ["rate_limited", "quota_exceeded"]:
                 status_code = status.HTTP_429_TOO_MANY_REQUESTS
+            elif error_code in ["mcp_timeout", "fetch_failed", "provider_unavailable", "mcp_failed"]:
+                status_code = status.HTTP_502_BAD_GATEWAY
             else:
                 status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
             
@@ -196,6 +196,18 @@ async def startup_event():
     if missing_vars:
         logger.error(f"Missing required environment variables: {missing_vars}")
         raise RuntimeError(f"Missing required environment variables: {missing_vars}")
+    
+    # Set default values for optional environment variables
+    os.environ.setdefault("TZ", "UTC")
+    os.environ.setdefault("WEATHER_PROVIDER", "open-meteo")
+    os.environ.setdefault("LOG_LEVEL", "INFO")
+    
+    # Log configuration
+    logger.info(f"Configuration: TZ={os.getenv('TZ')}, WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}")
+    if os.getenv("WEATHER_API_KEY"):
+        logger.info("WEATHER_API_KEY is configured")
+    else:
+        logger.info("WEATHER_API_KEY is not set (optional)")
     
     logger.info("WeatherSense API startup complete")
 
