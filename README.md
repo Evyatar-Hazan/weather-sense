@@ -187,6 +187,382 @@ The service understands various natural language patterns:
 "weather at 40.7128,-74.0060 from Monday to Wednesday"
 ```
 
+## Complete Deployment Guide
+
+This section provides a complete, step-by-step guide for deploying WeatherSense to Google Cloud Run from development to production.
+
+### Prerequisites Checklist
+
+Before starting deployment, ensure you have:
+
+- [ ] **Google Cloud Account** with billing enabled
+- [ ] **Google Cloud SDK** installed and configured
+- [ ] **Docker** installed and running
+- [ ] **Project repository** cloned locally
+- [ ] **API key** generated for your service
+- [ ] **Basic Cloud Run knowledge** (recommended)
+
+### Step 1: Environment Setup
+
+#### 1.1 Install Required Tools
+
+```bash
+# Install Google Cloud SDK (if not installed)
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+
+# Install Docker (Ubuntu/Debian)
+sudo apt update
+sudo apt install docker.io
+sudo usermod -aG docker $USER
+# Log out and back in for group changes
+
+# Verify installations
+gcloud --version
+docker --version
+```
+
+#### 1.2 Configure Google Cloud Project
+
+```bash
+# Set your project variables
+export PROJECT_ID="your-gcp-project-id"
+export REGION="us-central1"  # Choose your preferred region
+export SERVICE_NAME="weather-sense"
+export API_KEY="your-secure-api-key-here"
+
+# Login to Google Cloud
+gcloud auth login
+
+# Set the project
+gcloud config set project $PROJECT_ID
+
+# Enable required APIs
+gcloud services enable cloudbuild.googleapis.com
+gcloud services enable run.googleapis.com
+gcloud services enable containerregistry.googleapis.com
+
+# Configure Docker authentication
+gcloud auth configure-docker
+```
+
+### Step 2: Pre-Deployment Validation
+
+#### 2.1 Test Locally First
+
+```bash
+# Clone repository (if not done)
+git clone https://github.com/Evyatar-Hazan/weather-sense.git
+cd weather-sense
+
+# Setup Python environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -e .
+
+# Test locally
+export API_KEY="test-key-local"
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# In another terminal, test endpoints
+curl http://localhost:8000/healthz
+curl -X POST "http://localhost:8000/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: test-key-local" \
+  -d '{"query": "weather in Tel Aviv today"}'
+```
+
+#### 2.2 Run Deployment Validation Tests
+
+```bash
+# Install test dependencies
+pip install -e ".[test]"
+
+# Run comprehensive validation
+python validate_deployment.py
+
+# Expected output: All tests should pass
+# ✅ Documentation & Configuration Validation: PASSED
+# ✅ MCP Server Stdio Communication Test: PASSED
+# 🎉 DEPLOYMENT VALIDATION SUCCESSFUL!
+```
+
+### Step 3: Docker Image Build and Test
+
+#### 3.1 Build Docker Image
+
+```bash
+# Build for your platform
+docker build -t weather-sense:latest .
+
+# For Cloud Run (multi-platform)
+docker build \
+  --platform linux/amd64 \
+  -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest \
+  .
+
+# Verify image was created
+docker images | grep weather-sense
+```
+
+#### 3.2 Test Docker Image Locally
+
+```bash
+# Run container locally
+docker run -d \
+  --name weather-test \
+  -p 8000:8000 \
+  -e API_KEY="$API_KEY" \
+  -e LOG_LEVEL="INFO" \
+  gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
+
+# Wait for startup (10-15 seconds)
+sleep 15
+
+# Test endpoints
+curl -f http://localhost:8000/healthz
+
+curl -X POST "http://localhost:8000/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{"query": "weather in New York today"}'
+
+# Check logs
+docker logs weather-test
+
+# Clean up test container
+docker stop weather-test && docker rm weather-test
+```
+
+### Step 4: Push to Google Container Registry
+
+```bash
+# Push image to GCR
+docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
+
+# Verify push was successful
+gcloud container images list --repository=gcr.io/$PROJECT_ID
+```
+
+### Step 5: Deploy to Cloud Run
+
+#### 5.1 Initial Deployment
+
+```bash
+# Deploy service with all required configurations
+gcloud run deploy $SERVICE_NAME \
+  --image gcr.io/$PROJECT_ID/$SERVICE_NAME:latest \
+  --platform managed \
+  --region $REGION \
+  --allow-unauthenticated \
+  --set-env-vars="API_KEY=$API_KEY,LOG_LEVEL=INFO,DEPLOYMENT_ENV=docker,TZ=UTC" \
+  --memory 1Gi \
+  --cpu 1000m \
+  --min-instances 0 \
+  --max-instances 10 \
+  --port 8000 \
+  --timeout 300s \
+  --concurrency 100 \
+  --max-retries 3
+
+# Wait for deployment (1-3 minutes)
+echo "Waiting for deployment to complete..."
+```
+
+#### 5.2 Verify Deployment
+
+```bash
+# Get service URL
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+  --platform managed \
+  --region $REGION \
+  --format 'value(status.url)')
+
+echo "Service deployed at: $SERVICE_URL"
+
+# Test health endpoint (no authentication required)
+curl -f "$SERVICE_URL/healthz"
+
+# Expected response: {"ok":true}
+```
+
+#### 5.3 Test Production API
+
+```bash
+# Test weather endpoint (requires API key)
+curl -X POST "$SERVICE_URL/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{"query": "weather in San Francisco this week"}' \
+  | jq '.'
+
+# Expected: JSON response with weather summary and data
+```
+
+### Step 6: Post-Deployment Configuration
+
+#### 6.1 Set Up Custom Domain (Optional)
+
+```bash
+# Map custom domain (if you have one)
+gcloud run domain-mappings create \
+  --service $SERVICE_NAME \
+  --domain your-domain.com \
+  --region $REGION
+```
+
+#### 6.2 Configure Monitoring
+
+```bash
+# Enable Cloud Monitoring (automatic for Cloud Run)
+# View service metrics in Google Cloud Console
+
+# Set up alerting (optional)
+gcloud alpha monitoring policies create \
+  --policy-from-file=monitoring-policy.yaml
+```
+
+### Step 7: Testing and Verification
+
+#### 7.1 Comprehensive Production Testing
+
+```bash
+# Health check
+echo "Testing health endpoint..."
+curl -f "$SERVICE_URL/healthz" || echo "❌ Health check failed"
+
+# Authentication test
+echo "Testing authentication..."
+curl -s -o /dev/null -w "%{http_code}" \
+  -X POST "$SERVICE_URL/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}' | grep -q "401" && echo "✅ Auth required" || echo "❌ Auth not working"
+
+# Valid request test
+echo "Testing valid weather request..."
+RESPONSE=$(curl -s -X POST "$SERVICE_URL/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{"query": "weather in London today"}')
+
+echo $RESPONSE | jq '.summary' > /dev/null && echo "✅ API working" || echo "❌ API error"
+
+# Performance test
+echo "Testing response time..."
+TIME=$(curl -s -o /dev/null -w "%{time_total}" \
+  -X POST "$SERVICE_URL/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{"query": "weather in Tokyo today"}')
+
+echo "Response time: ${TIME}s"
+```
+
+#### 7.2 Load Testing (Optional)
+
+```bash
+# Simple load test with curl
+echo "Running basic load test..."
+for i in {1..10}; do
+  curl -s -X POST "$SERVICE_URL/v1/weather/ask" \
+    -H "Content-Type: application/json" \
+    -H "x-api-key: $API_KEY" \
+    -d '{"query": "weather in city'$i' today"}' &
+done
+wait
+echo "Load test completed"
+```
+
+### Step 8: Monitoring and Maintenance
+
+#### 8.1 View Logs
+
+```bash
+# Real-time logs
+gcloud run services logs read $SERVICE_NAME \
+  --platform managed \
+  --region $REGION \
+  --follow
+
+# Recent logs
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME" \
+  --project=$PROJECT_ID \
+  --limit=50 \
+  --format="value(timestamp,textPayload)"
+```
+
+#### 8.2 Monitor Performance
+
+```bash
+# Service status
+gcloud run services describe $SERVICE_NAME \
+  --platform managed \
+  --region $REGION
+
+# Check metrics in Cloud Console:
+# https://console.cloud.google.com/run/detail/$REGION/$SERVICE_NAME
+```
+
+### Step 9: Updates and Rollbacks
+
+#### 9.1 Deploy Updates
+
+```bash
+# Build new version
+docker build --platform linux/amd64 -t gcr.io/$PROJECT_ID/$SERVICE_NAME:v2 .
+docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:v2
+
+# Deploy with zero downtime
+gcloud run deploy $SERVICE_NAME \
+  --image gcr.io/$PROJECT_ID/$SERVICE_NAME:v2 \
+  --platform managed \
+  --region $REGION
+```
+
+#### 9.2 Rollback if Needed
+
+```bash
+# List revisions
+gcloud run revisions list --service=$SERVICE_NAME --region=$REGION
+
+# Rollback to previous revision
+gcloud run services update-traffic $SERVICE_NAME \
+  --to-revisions=REVISION_NAME=100 \
+  --region=$REGION
+```
+
+### Troubleshooting Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **Build fails** | Check Dockerfile syntax, ensure all files exist |
+| **Push fails** | Verify `gcloud auth configure-docker` was run |
+| **Deploy fails** | Check environment variables, memory/CPU limits |
+| **API returns 503** | Check logs, may need more memory or CPU |
+| **Authentication issues** | Verify API_KEY environment variable is set |
+| **MCP timeouts** | Increase timeout or check MCP server logs |
+
+### Security Best Practices
+
+- ✅ Use strong, unique API keys
+- ✅ Enable Cloud Run IAM for additional security layers
+- ✅ Regularly rotate API keys
+- ✅ Monitor access logs for suspicious activity
+- ✅ Keep Docker images updated
+- ✅ Use least-privilege service accounts
+
+### Cost Optimization
+
+- 🔧 Set appropriate min/max instances (0-10 recommended)
+- 🔧 Use CPU throttling (--cpu-throttling)
+- 🔧 Set request timeout appropriately (--timeout 300s)
+- 🔧 Monitor usage and adjust resources as needed
+
+---
+
 ## Docker Deployment
 
 ### Build and Run Locally
