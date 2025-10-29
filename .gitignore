@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# WeatherSense specific
+*.log
+cloudbuild.yaml
+build.log
+nohup.out
+
 # C extensions
 *.so
 

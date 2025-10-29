@@ -2,6 +2,13 @@
 
 A comprehensive weather analysis service that combines natural language processing, MCP (Model Context Protocol) tools, and CrewAI workflows to provide intelligent weather insights.
 
+## 📋 Deliverables
+
+✅ **1. Repository URL**: https://github.com/Evyatar-Hazan/weather-sense  
+✅ **2. Cloud Run URL**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app  
+✅ **3. Test API Key**: `test-api-key-weather-sense-production`  
+✅ **4. Complete Documentation**: README.md + NOTES.md with deployment steps
+
 ## Features
 
 - **Natural Language Queries**: Ask for weather in plain English
@@ -48,6 +55,7 @@ pip install -e .
 2. **Set environment variables**:
 ```bash
 export API_KEY="your-secret-api-key"
+export LOG_LEVEL="INFO"  # Optional, defaults to INFO
 export LOG_LEVEL="INFO"
 export TZ="UTC"
 ```
@@ -97,6 +105,24 @@ Test the MCP weather tool directly:
 ```bash
 # Test MCP tool via stdin/stdout
 echo '{"location": "Tel Aviv", "start_date": "2025-10-20", "end_date": "2025-10-24", "units": "metric"}' | python mcp_weather/server.py
+```
+
+## 🚀 Live Demo
+
+**Production URL**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app  
+**API Key**: `test-api-key-weather-sense-production`
+
+### Try it now:
+
+```bash
+# Test the weather service
+curl -X POST "https://weather-sense-service-ektuy7j2kq-uc.a.run.app/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: test-api-key-weather-sense-production" \
+  -d '{"query": "weather in Tel Aviv for today"}'
+
+# View API documentation
+open https://weather-sense-service-ektuy7j2kq-uc.a.run.app/docs
 ```
 
 ## API Usage
@@ -633,6 +659,25 @@ gcloud run deploy $SERVICE_NAME \
   --timeout 300s \
   --concurrency 100
 ```
+
+### 🎯 Current Live Deployment
+
+**WeatherSense is already deployed and available:**
+
+- **🌍 Service URL**: `https://weather-sense-service-ektuy7j2kq-uc.a.run.app`
+- **🔑 Test API Key**: `test-api-key-weather-sense-production`
+- **📍 Project**: `weather-sense-app-1761757473`
+- **🌎 Region**: `us-central1`
+
+**Quick Test:**
+```bash
+curl -X POST "https://weather-sense-service-ektuy7j2kq-uc.a.run.app/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: test-api-key-weather-sense-production" \
+  -d '{"query": "weather in Tokyo tomorrow"}'
+```
+
+**🔍 Interactive API Docs**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app/docs
 
 4. **Verify deployment**:
 ```bash
