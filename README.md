@@ -66,9 +66,13 @@ pip install -e ".[test]"
 
 #### Step 4: Configure Environment
 ```bash
-export API_KEY="your-secret-api-key"
+# For local development, you can use any API key value
+export API_KEY="your-local-dev-key-here"
 export LOG_LEVEL="INFO"
 export TZ="UTC"
+
+# Note: Local development accepts any API key value for testing
+# Production requires a valid API key from the administrator
 ```
 
 #### Step 5: Start Services
@@ -166,8 +170,8 @@ python mcp_weather/server.py
 Create a `.env` file in the project root:
 
 ```bash
-# Required
-API_KEY=your-secure-api-key-here
+# Required - For local development, any value works
+API_KEY=your-local-dev-key-here
 
 # Optional
 LOG_LEVEL=INFO
@@ -177,6 +181,28 @@ WEATHER_PROVIDER=open-meteo
 
 # For Docker deployment
 DEPLOYMENT_ENV=docker
+```
+
+#### 🔑 API Key Configuration Notes
+
+**Local Development**: 
+- You can use **any API key value** (e.g., `test-key`, `dev-123`, `local-development`)
+- The application validates that an API key exists but doesn't verify it against a database
+- This allows free local testing and development
+
+**Production Environment**:
+- Requires a **valid API key** issued by the service administrator
+- API keys are validated against the configured production key
+- Contact admin for production access credentials
+
+**Example Local Setup**:
+```bash
+# Simple local development
+export API_KEY="my-local-test-key"
+
+# Or create a .env file
+echo 'API_KEY="local-dev-key-123"' > .env
+echo 'LOG_LEVEL="DEBUG"' >> .env
 ```
 
 ## 🧪 Testing
@@ -306,14 +332,14 @@ gcloud run deploy $SERVICE_NAME \
 ### Live Demo
 
 🌍 **Production Instance**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app  
-🔑 **Test API Key**: `test-api-key-weather-sense-production`
+🔑 **Test API Key**: Contact admin for production API key
 
 #### Try it Now
 ```bash
 # Quick test
 curl -X POST "https://weather-sense-service-ektuy7j2kq-uc.a.run.app/v1/weather/ask" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: test-api-key-weather-sense-production" \
+  -H "x-api-key: YOUR_API_KEY_HERE" \
   -d '{"query": "weather in Tel Aviv for today"}'
 
 # Interactive docs
@@ -456,8 +482,15 @@ pip install -e .
 **Solution**: Verify API key configuration:
 ```bash
 echo $API_KEY  # Should show your key
-export API_KEY="your-secret-api-key"
+export API_KEY="your-local-dev-key"  # For local development, any value works
+
+# For local testing, try:
+export API_KEY="test-local-123"
+export API_KEY="dev-key"
+export API_KEY="my-development-key"
 ```
+
+**Note**: Local development accepts any API key value. Production requires a valid key from admin.
 
 #### 6. MCP Tool Failures
 **Problem**: MCP timeout or communication errors  

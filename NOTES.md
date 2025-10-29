@@ -439,7 +439,7 @@ mock_weather_data = {
 **Environment Variables**:
 ```bash
 # Required
-API_KEY="your-secret-key"
+API_KEY="YOUR_SECRET_API_KEY_HERE"
 
 # Optional with defaults
 LOG_LEVEL="INFO"
@@ -539,7 +539,7 @@ WEATHER_PROVIDER="open-meteo"
 pip install -e ".[test]"
 
 # Run in development mode
-export API_KEY="dev-key"
+export API_KEY="YOUR_DEV_API_KEY_HERE"
 python -m uvicorn api.main:app --reload
 
 # Run tests
@@ -620,7 +620,7 @@ jq 'select(.level == "ERROR") | .message' app.log | sort | uniq -c
 pip install -e ".[test]"
 
 # Set environment variables
-export API_KEY="dev-key"
+export API_KEY="YOUR_DEV_API_KEY_HERE"
 export LOG_LEVEL="INFO"
 
 # Run development server
@@ -649,7 +649,7 @@ docker build -t weather-sense .
 
 # Run container with environment variables
 docker run -d -p 8000:8000 \
-  -e API_KEY="your-secret-key" \
+  -e API_KEY="YOUR_SECRET_API_KEY_HERE" \
   -e LOG_LEVEL="INFO" \
   weather-sense
 
@@ -666,7 +666,7 @@ curl -H "Accept: application/json" http://localhost:8000/health
 # Weather query
 curl -X POST http://localhost:8000/weather \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-secret-key" \
+  -H "x-api-key: YOUR_SECRET_API_KEY_HERE" \
   -d '{"query": "weather in Tel Aviv for the next 3 days"}'
 ```
 
