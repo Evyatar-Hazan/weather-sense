@@ -91,14 +91,18 @@ class DateRangeParser:
         """Extract location from query."""
         # Look for common location patterns - more specific patterns first
         location_patterns = [
-            # Pattern: "in <location> for/from/during/this/next/last"
-            r'\bin\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d))',
-            # Pattern: "weather in <location>"
-            r'weather\s+in\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)',
+            # Pattern: "in/for <location> for/from/during/this/next/last"
+            r'\b(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d))',
+            # Pattern: "weather in/for <location>"
+            r'weather\s+(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)',
+            # Pattern: "forecast/temperature/climate data for <location>"
+            r'\b(?:forecast|temperature|climate)\s+(?:data\s+)?for\s+([A-Za-z\s,.-]+?)(?:\s+(?:from|during|this|next|last|tomorrow|today|yesterday|\d))',
+            # Pattern: "forecast <location>" but not time words
+            r'\bforecast\s+([A-Za-z][A-Za-z\s,.-]*?)(?:\s+(?:from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)',
             # Pattern: "<location> weather"
             r'([A-Za-z\s,.-]+?)\s+weather',
-            # Pattern: "in <location>" at end of query
-            r'\bin\s+([A-Za-z\s,.-]+?)\s*$',
+            # Pattern: "in/for <location>" at end of query
+            r'\b(?:in|for)\s+([A-Za-z\s,.-]+?)\s*$',
         ]
         
         # Check for coordinate pattern first
@@ -118,7 +122,8 @@ class DateRangeParser:
                 # Filter out time-related words that are not locations
                 time_words = ['last week', 'this week', 'next week', 'last monday', 'this monday', 
                              'next monday', 'yesterday', 'today', 'tomorrow', 'monday', 'tuesday',
-                             'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                             'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'from', 'to',
+                             'during', 'this', 'next', 'last', 'week', 'day', 'month', 'year']
                 
                 if location.lower() not in time_words and len(location) > 2:
                     return location
@@ -128,6 +133,19 @@ class DateRangeParser:
     def _extract_date_range(self, query: str) -> tuple[Optional[str], Optional[str]]:
         """Extract start and end dates from query."""
         try:
+            # Handle simple single-day queries first
+            if 'today' in query and not (' from ' in query or ' to ' in query or 'between' in query):
+                today_date = self.today.strftime("%Y-%m-%d")
+                return today_date, today_date
+            
+            if 'tomorrow' in query and not (' from ' in query or ' to ' in query or 'between' in query):
+                tomorrow_date = (self.today + timedelta(days=1)).strftime("%Y-%m-%d")
+                return tomorrow_date, tomorrow_date
+            
+            if 'yesterday' in query and not (' from ' in query or ' to ' in query or 'between' in query):
+                yesterday_date = (self.today - timedelta(days=1)).strftime("%Y-%m-%d")
+                return yesterday_date, yesterday_date
+            
             # Handle relative date patterns
             if 'last week' in query:
                 return self._get_last_week()
@@ -139,6 +157,14 @@ class DateRangeParser:
                 return self._get_last_weekdays()
             elif 'this monday to friday' in query or 'from this monday to friday' in query:
                 return self._get_this_weekdays()
+            
+            # Handle individual weekdays (e.g., "next Sunday", "last Monday")
+            for weekday, weekday_num in self.weekday_names.items():
+                pattern = rf'\b(?:last|this|next)\s+{weekday}\b'
+                match = re.search(pattern, query, re.IGNORECASE)
+                if match:
+                    date_str = self._get_weekday_date(weekday_num, match.group(0).lower())
+                    return date_str, date_str
             
             # Handle "next X days" pattern
             next_days_match = re.search(r'next\s+(\d+)\s+days?', query)
@@ -288,25 +314,68 @@ class DateRangeParser:
         return dates
     
     def _calculate_confidence(self, query: str, location: str, start_date: str, end_date: str, units: str) -> float:
-        """Calculate confidence score based on parsing success."""
+        """Calculate confidence score based on parsing success and query clarity."""
         confidence = 0.0
         
-        # Base confidence for successful parsing
-        confidence += 0.3
+        # Location confidence (40% of total)
+        if location:
+            location_confidence = 0.0
+            if len(location) > 2:
+                location_confidence += 0.2
+            # Bonus for recognized city names (basic check)
+            if any(char.isupper() for char in location):  # Likely proper noun
+                location_confidence += 0.1
+            # Penalty for vague locations
+            if any(word in location.lower() for word in ['somewhere', 'anywhere', 'unknown']):
+                location_confidence -= 0.2
+            confidence += min(location_confidence, 0.4)
         
-        # Location confidence
-        if location and len(location) > 2:
-            confidence += 0.3
-        
-        # Date range confidence
+        # Date range confidence (40% of total)
         if start_date and end_date:
-            confidence += 0.3
+            date_confidence = 0.2  # Base for successful parsing
+            
+            # Bonus for specific date formats
+            if re.match(r'\d{4}-\d{2}-\d{2}', start_date):
+                date_confidence += 0.1
+            
+            # Penalty for very vague date references
+            vague_date_words = ['sometime', 'maybe', 'perhaps', 'possibly']
+            if any(word in query for word in vague_date_words):
+                date_confidence -= 0.15
+            
+            # Bonus for clear temporal indicators
+            clear_indicators = ['today', 'tomorrow', 'yesterday', 'last week', 'next week', 'this week']
+            if any(indicator in query for indicator in clear_indicators):
+                date_confidence += 0.1
+                
+            confidence += min(date_confidence, 0.4)
         
-        # Units confidence
-        if units in query:
-            confidence += 0.1
+        # Units confidence (10% of total)
+        units_confidence = 0.05  # Base for default units
+        if 'metric' in query or 'imperial' in query or 'fahrenheit' in query or 'celsius' in query:
+            units_confidence = 0.1  # Explicitly mentioned
+        confidence += units_confidence
         
-        return min(confidence, 1.0)
+        # Query clarity bonus/penalty (10% of total)
+        clarity_score = 0.0
+        
+        # Penalty for ambiguous words
+        ambiguous_words = ['maybe', 'perhaps', 'might', 'possibly', 'unclear', 'vague']
+        ambiguous_count = sum(1 for word in ambiguous_words if word in query)
+        clarity_score -= ambiguous_count * 0.03
+        
+        # Bonus for clear structure
+        if any(pattern in query for pattern in ['from', 'to', 'between', 'in']):
+            clarity_score += 0.05
+        
+        # Penalty for overly complex queries
+        if len(query.split()) > 15:
+            clarity_score -= 0.02
+        
+        confidence += clarity_score
+        
+        # Ensure confidence is in valid range [0.0, 1.0]
+        return max(0.0, min(confidence, 1.0))
 
 
 def parse_natural_language(query_data: Dict[str, Any]) -> Dict[str, Any]:
