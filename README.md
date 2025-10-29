@@ -332,14 +332,14 @@ gcloud run deploy $SERVICE_NAME \
 ### Live Demo
 
 🌍 **Production Instance**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app  
-🔑 **Test API Key**: Contact admin for production API key
+🔑 **Demo API Key (Valid until Nov 15, 2025)**: `interview-demo-20251029-974213a2e493d09f`
 
 #### Try it Now
 ```bash
 # Quick test
 curl -X POST "https://weather-sense-service-ektuy7j2kq-uc.a.run.app/v1/weather/ask" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY_HERE" \
+  -H "x-api-key: interview-demo-20251029-974213a2e493d09f" \
   -d '{"query": "weather in Tel Aviv for today"}'
 
 # Interactive docs

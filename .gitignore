@@ -8,6 +8,7 @@ __pycache__/
 cloudbuild.yaml
 build.log
 nohup.out
+revoke_interview_key.sh
 
 # C extensions
 *.so
