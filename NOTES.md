@@ -105,41 +105,41 @@ Client → Cloudflare Worker → Google Cloud Run → CrewAI Flow → MCP Tool �
 graph TB
     %% Client Layer
     Client[👤 Client Application] --> Proxy[🔄 Cloudflare Worker Proxy]
-    
+
     %% Proxy Layer
     Proxy -->|All Requests| CloudRun[☁️ Google Cloud Run]
     Proxy -->|/healthz → /health| CloudRun
-    
+
     %% Application Layer
     CloudRun --> API[🌐 FastAPI Server]
     API --> Auth[🔐 API Key Validation]
     API --> Flow[🎭 CrewAI Flow Orchestrator]
-    
+
     %% Task Processing
     Flow --> TaskA[📝 Task A: NLP Parser]
     Flow --> TaskB[🔧 Task B: MCP Client]
     Flow --> TaskC[📊 Task C: Weather Analyst]
-    
+
     %% Core Components
     TaskA --> Parser[🧠 DateRangeParser]
     TaskB --> MCP[⚙️ MCP Weather Tool]
     TaskC --> Agent[🤖 Analysis Agent]
-    
+
     %% Data Layer
     MCP --> Cache{🗄️ In-Memory Cache}
     Cache -->|Hit| TaskB
     Cache -->|Miss| Provider[🌤️ Weather Provider]
     Provider --> OpenMeteo[🌍 Open-Meteo API]
-    
+
     %% External Services
     OpenMeteo -->|Weather Data| Provider
     Provider -->|Cached| Cache
-    
+
     %% Infrastructure
     subgraph "Edge Computing"
         Proxy
     end
-    
+
     subgraph "Container Platform"
         CloudRun
         API
@@ -147,11 +147,11 @@ graph TB
         MCP
         Cache
     end
-    
+
     subgraph "External APIs"
         OpenMeteo
     end
-    
+
     %% Styling
     style Client fill:#e1f5fe
     style Proxy fill:#fff3e0
@@ -171,13 +171,13 @@ sequenceDiagram
     participant C as Client
     participant P as Cloudflare Worker
     participant CR as Cloud Run (/health)
-    
+
     C->>P: GET /healthz
     Note over P: Check if path === "/healthz"
     P->>CR: GET /health
     CR->>P: {"ok": true}
     P->>C: {"ok": true}
-    
+
     Note over C,CR: Assignment compliant /healthz endpoint
 ```
 
@@ -194,25 +194,25 @@ sequenceDiagram
     participant T3 as Task C (Analyst)
     participant M as MCP Tool
     participant W as Weather API
-    
+
     C->>P: POST /weather + query
     P->>A: Forward request
     A->>A: Validate API key
     A->>F: Process query
-    
+
     F->>T1: Parse natural language
     T1->>F: Location + dates + confidence
-    
+
     F->>T2: Fetch weather data
     T2->>M: MCP tool call
     M->>W: API request
     W->>M: Weather data
     M->>T2: Structured response
     T2->>F: Weather results
-    
+
     F->>T3: Analyze weather
     T3->>F: Analysis + insights
-    
+
     F->>A: Complete results
     A->>P: JSON response
     P->>C: Final response
@@ -227,19 +227,19 @@ flowchart TD
     B -->|Yes| D{Valid Query?}
     D -->|No| E[400 Bad Request]
     D -->|Yes| F[Parse Query]
-    
+
     F --> G{Location Found?}
     G -->|No| H[400 missing_location]
     G -->|Yes| I{Valid Date Range?}
     I -->|No| J[400 invalid_date_range]
     I -->|Yes| K[Fetch Weather]
-    
+
     K --> L{MCP Success?}
     L -->|No| M[500 mcp_timeout]
     L -->|Yes| N{API Available?}
     N -->|No| O[502 provider_unavailable]
     N -->|Yes| P[200 Success]
-    
+
     style C fill:#ffebee
     style E fill:#ffebee
     style H fill:#ffebee
@@ -559,38 +559,38 @@ dependencies = [
 graph TB
     Client[👤 Client Request] --> API[🌐 FastAPI Server]
     API --> Flow[🎭 CrewAI Flow]
-    
+
     Flow --> TaskA[📝 Task A: NLP Parser]
     Flow --> TaskB[🔧 Task B: MCP Client]
     Flow --> TaskC[📊 Task C: Weather Analyst]
-    
+
     TaskA --> Parser[🧠 DateRangeParser]
     TaskB --> MCP[⚙️ MCP Weather Tool]
     TaskC --> Agent[🤖 Analysis Agent]
-    
+
     MCP --> Cache{🗄️ Weather Cache}
     Cache -->|Hit| TaskB
     Cache -->|Miss| Provider[🌤️ Weather Provider]
     Provider --> OpenMeteo[🌍 Open-Meteo API]
     OpenMeteo --> Provider
     Provider --> Cache
-    
+
     subgraph "Security Layer"
         API --> Auth[🔐 API Key Validation]
     end
-    
+
     subgraph "Logging & Monitoring"
         API --> Logs[📋 Structured Logs]
         Flow --> Metrics[📊 Performance Metrics]
     end
-    
+
     subgraph "Docker Container"
         API
         Flow
         MCP
         Cache
     end
-    
+
     style Client fill:#e1f5fe
     style API fill:#f3e5f5
     style Flow fill:#e8f5e8
@@ -610,23 +610,23 @@ flowchart TD
     B --> C[Location Extraction]
     B --> D[Date Range Parsing]
     B --> E[Units Detection]
-    
+
     C --> F[Location Patterns Matching]
     F --> G[Location Validation & Cleanup]
-    
+
     D --> H[Relative Date Processing]
     D --> I[Absolute Date Processing]
     H --> J[Date Range Validation]
     I --> J
-    
+
     E --> K[Units Pattern Matching]
-    
+
     G --> L[Confidence Scoring]
     J --> L
     K --> L
-    
+
     L --> M[Final Parsed Result]
-    
+
     style A fill:#e3f2fd
     style M fill:#e8f5e8
 ```
@@ -640,13 +640,13 @@ def parse_natural_language(query_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     CrewAI Task A - Parse natural language query.
     Main interface for parsing weather queries from natural language.
-    
+
     Args:
         query_data: Dictionary containing 'query' key with the natural language string
-    
+
     Returns:
         Dictionary with parsed results or error information
-        
+
     Example:
         >>> parse_natural_language({"query": "weather in Paris tomorrow"})
         {
@@ -698,19 +698,19 @@ The parser uses multiple sophisticated regex patterns for location detection, or
 location_patterns = [
     # Specific location context with temporal boundaries
     r'\b(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d))',
-    
+
     # Weather context patterns
     r'weather\s+(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)',
-    
+
     # Forecast/temperature/climate data patterns
     r'\b(?:forecast|temperature|climate)\s+(?:data\s+)?for\s+([A-Za-z\s,.-]+?)(?:\s+(?:from|during|this|next|last|tomorrow|today|yesterday|\d))',
-    
+
     # Forecast location (excluding time words)
     r'forecast\s+([A-Za-z\s,.-]+?)(?!\s+(?:for|from|in|during|this|next|last|tomorrow|today|yesterday))',
-    
+
     # Direct location to time patterns
     r'([A-Za-z\s,.-]+?)\s+(?:for|from|during)\s+',
-    
+
     # General location extraction patterns
     r'\b(?:in|at|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:from|between|during|\d)|\s*$)',
     r'([A-Za-z\s,.-]+?)(?:\s+weather|\s+forecast)(?:\s|$)',
@@ -723,15 +723,15 @@ def clean_location(location: str) -> str:
     """Clean and validate extracted location."""
     # Remove common false positives
     false_positives = {"weather", "temperature", "data", "forecast", "climate"}
-    
+
     # Strip temporal words
     temporal_words = {"today", "tomorrow", "yesterday", "this", "next", "last"}
-    
+
     # Capitalize proper nouns for better geocoding
     words = location.split()
-    cleaned = [word.capitalize() if word.lower() not in temporal_words else word 
+    cleaned = [word.capitalize() if word.lower() not in temporal_words else word
                for word in words if word.lower() not in false_positives]
-    
+
     return " ".join(cleaned).strip()
 ```
 
@@ -741,18 +741,18 @@ The confidence algorithm allocates weights across four key components:
 
 **Scoring Components:**
 1. **Location Confidence (0-40%)**: Based on location quality and specificity
-2. **Date Range Confidence (0-40%)**: Based on date parsing success and clarity  
+2. **Date Range Confidence (0-40%)**: Based on date parsing success and clarity
 3. **Units Confidence (5-10%)**: Explicit vs implicit unit specification
 4. **Query Clarity (0-10%)**: Based on ambiguous words and structure
 
 **Detailed Scoring Rules:**
 
 ```python
-def calculate_confidence(self, location: str, start_date: date, end_date: date, 
+def calculate_confidence(self, location: str, start_date: date, end_date: date,
                         units: str, query: str) -> float:
     """Calculate confidence score for parsed query."""
     confidence = 0.0
-    
+
     # Location confidence (up to 0.4)
     if location:
         confidence += 0.2  # Base for valid location
@@ -760,7 +760,7 @@ def calculate_confidence(self, location: str, start_date: date, end_date: date,
             confidence += 0.1  # Proper nouns bonus
         if location.lower() in ["weather", "temperature", "somewhere"]:
             confidence -= 0.2  # Vague location penalty
-    
+
     # Date range confidence (up to 0.4)
     if start_date and end_date:
         confidence += 0.2  # Base for valid dates
@@ -768,21 +768,21 @@ def calculate_confidence(self, location: str, start_date: date, end_date: date,
             confidence += 0.1  # Clear temporal indicators
         if any(word in query for word in ["maybe", "perhaps", "might"]):
             confidence -= 0.15  # Uncertainty penalty
-    
+
     # Units confidence (0.05-0.1)
     if "celsius" in query or "fahrenheit" in query:
         confidence += 0.1  # Explicit units
     else:
         confidence += 0.05  # Default units
-    
+
     # Query clarity (up to 0.1)
     clear_indicators = ["weather", "forecast", "temperature", "in", "for"]
     ambiguous_words = ["thing", "stuff", "whatever", "something"]
-    
+
     clarity_score = sum(0.02 for word in clear_indicators if word in query.lower())
     clarity_score -= sum(0.03 for word in ambiguous_words if word in query.lower())
     confidence += min(0.1, max(0, clarity_score))
-    
+
     return min(1.0, confidence)  # Cap at 1.0
 ```
 
@@ -805,7 +805,7 @@ def test_location_extraction_basic(self):
         ("temperature in Tel Aviv for today", "Tel Aviv"),
         ("climate data for Los Angeles this week", "Los Angeles")
     ]
-    
+
 def test_date_parsing_relative(self):
     """Test relative date parsing with fixed reference date."""
     self.parser.today = date(2025, 10, 28)  # Tuesday
@@ -840,7 +840,7 @@ pytest tests/test_api_e2e.py -k "parser" -v
 # Daily weather parameters requested
 daily_params = [
     "temperature_2m_min",      # Minimum temperature
-    "temperature_2m_max",      # Maximum temperature  
+    "temperature_2m_max",      # Maximum temperature
     "precipitation_sum",       # Total precipitation
     "wind_speed_10m_max",      # Maximum wind speed
     "weather_code"             # Weather condition code
@@ -918,24 +918,24 @@ flowchart TD
     A --> C[Integration Tests]
     A --> D[End-to-End Tests]
     A --> E[Deployment Tests]
-    
+
     B --> F[Parser Tests]
     B --> G[MCP Client Tests]
     B --> H[Cache Tests]
     B --> I[Server Tests]
-    
+
     C --> J[Weather API Tests]
     C --> K[CrewAI Flow Tests]
     C --> L[Proxy Health Tests]
-    
+
     D --> M[API Route Tests]
     D --> N[Full Query Tests]
     D --> O[Authentication Tests]
-    
+
     E --> P[Cloud Run Tests]
     E --> Q[Proxy Deploy Tests]
     E --> R[Health Check Tests]
-    
+
     style A fill:#e3f2fd
     style B fill:#fff3e0
     style C fill:#f3e5f5
@@ -953,7 +953,7 @@ python_files = test_*.py *_test.py
 python_classes = Test*
 python_functions = test_*
 addopts = -v --tb=short
-filterwarnings = 
+filterwarnings =
     ignore::DeprecationWarning
     ignore::PendingDeprecationWarning
 markers =
@@ -996,41 +996,41 @@ def test_client():
 ```python
 class TestDateRangeParser:
     """Comprehensive parser testing with controlled date scenarios."""
-    
+
     def test_basic_location_extraction(self):
         """Test fundamental location extraction patterns."""
         cases = [
             ("weather in Paris", "Paris"),
-            ("forecast for New York City tomorrow", "New York City"), 
+            ("forecast for New York City tomorrow", "New York City"),
             ("temperature in São Paulo today", "São Paulo"),
             ("climate data for Tel Aviv this week", "Tel Aviv")
         ]
-        
+
     def test_complex_date_parsing(self):
         """Test advanced date parsing scenarios."""
         # Fixed reference date for consistent testing
         self.parser.today = date(2025, 10, 28)  # Tuesday
         cases = [
-            ("from last Monday to this Friday", 
+            ("from last Monday to this Friday",
              (date(2025, 10, 21), date(2025, 10, 31))),
-            ("weather for the next 3 days", 
+            ("weather for the next 3 days",
              (date(2025, 10, 29), date(2025, 10, 31))),
-            ("temperature between Oct 15 and Oct 20", 
+            ("temperature between Oct 15 and Oct 20",
              (date(2025, 10, 15), date(2025, 10, 20)))
         ]
-        
+
     def test_confidence_boundary_conditions(self):
         """Test confidence scoring edge cases."""
         # Maximum confidence scenario
         query = "weather forecast for Tokyo, Japan tomorrow in celsius"
         result = self.parser.parse_query(query)
         assert result["confidence"] >= 0.85
-        
-        # Minimum confidence scenario  
+
+        # Minimum confidence scenario
         query = "something maybe somewhere sometime"
         result = self.parser.parse_query(query)
         assert result["confidence"] <= 0.3
-        
+
     def test_error_handling_robustness(self):
         """Test parser resilience to malformed inputs."""
         edge_cases = [
@@ -1047,19 +1047,19 @@ class TestDateRangeParser:
 ```python
 class TestMCPClient:
     """Test MCP client functionality and communication."""
-    
+
     def test_client_initialization(self):
         """Test MCP client setup and server connection."""
         # Tests server executable path resolution
         # Validates stdio transport initialization
         # Checks protocol handshake success
-        
+
     def test_tool_execution_success(self):
         """Test successful tool execution via MCP."""
         # Mock weather tool response
         # Validate request/response format
         # Check error handling paths
-        
+
     def test_connection_recovery(self):
         """Test MCP client resilience to connection issues."""
         # Simulate server disconnection
@@ -1068,19 +1068,19 @@ class TestMCPClient:
 
 class TestMCPServer:
     """Test MCP server implementation and tools."""
-    
+
     def test_server_startup_sequence(self):
         """Test server initialization and tool registration."""
         # Validate tool manifest creation
         # Check stdio transport setup
         # Test capabilities advertisement
-        
+
     def test_weather_tool_execution(self):
         """Test weather tool functionality."""
         # Mock Open-Meteo API responses
         # Test parameter validation
         # Validate response formatting
-        
+
     def test_cache_integration(self):
         """Test server-side caching behavior."""
         # Test cache hit scenarios
@@ -1092,19 +1092,19 @@ class TestMCPServer:
 ```python
 class TestWeatherCache:
     """Test weather data caching functionality."""
-    
+
     def test_cache_key_generation(self):
         """Test cache key creation and uniqueness."""
         # Test location normalization
         # Validate date range handling
         # Check parameter inclusion
-        
+
     def test_cache_expiration_logic(self):
         """Test cache TTL and expiration handling."""
         # Test different TTL scenarios
         # Validate expiration timing
         # Check cleanup behavior
-        
+
     def test_concurrent_cache_access(self):
         """Test cache thread safety."""
         # Simulate concurrent reads/writes
@@ -1119,19 +1119,19 @@ class TestWeatherCache:
 @pytest.mark.integration
 class TestWeatherAPIIntegration:
     """Integration tests with Open-Meteo API."""
-    
+
     def test_real_api_requests(self):
         """Test actual API calls with various parameters."""
         # Test successful requests to Open-Meteo
         # Validate response format compliance
         # Check error handling for API failures
-        
+
     def test_geocoding_integration(self):
         """Test location resolution via geocoding."""
         # Test major city resolution
         # Validate coordinate accuracy
         # Check fallback mechanisms
-        
+
     def test_rate_limiting_behavior(self):
         """Test API rate limiting and backoff."""
         # Simulate high request volumes
@@ -1141,22 +1141,22 @@ class TestWeatherAPIIntegration:
 
 **2. CrewAI Flow Integration** (`test_weather_analyst.py`, `test_weather_fetcher.py`):
 ```python
-@pytest.mark.integration  
+@pytest.mark.integration
 class TestCrewAIFlow:
     """Test complete CrewAI task flow execution."""
-    
+
     def test_task_a_to_b_handoff(self):
         """Test parser → weather fetcher handoff."""
         # Validate task result format
         # Check data transformation
         # Test error propagation
-        
+
     def test_task_b_to_c_handoff(self):
         """Test weather fetcher → analyst handoff."""
         # Validate weather data structure
         # Check analysis preparation
         # Test format compliance
-        
+
     def test_complete_flow_execution(self):
         """Test end-to-end CrewAI flow."""
         # Execute full A→B→C sequence
@@ -1169,19 +1169,19 @@ class TestCrewAIFlow:
 @pytest.mark.integration
 class TestProxyHealth:
     """Test Cloudflare proxy health check functionality."""
-    
+
     def test_healthz_endpoint_success(self):
         """Test successful health check responses."""
         # Test /healthz endpoint availability
         # Validate response format
         # Check response timing
-        
+
     def test_cors_header_validation(self):
         """Test CORS header configuration."""
         # Validate CORS headers presence
         # Test preflight request handling
         # Check origin validation
-        
+
     def test_proxy_error_handling(self):
         """Test proxy error scenarios."""
         # Simulate backend unavailability
@@ -1196,59 +1196,59 @@ class TestProxyHealth:
 @pytest.mark.e2e
 class TestAPIEndToEnd:
     """Complete API workflow testing."""
-    
+
     def test_complete_weather_query_flow(self):
         """Test full query processing workflow."""
         query = "weather in London tomorrow"
-        
+
         # POST /weather with natural language query
         response = client.post("/weather", json={"query": query})
-        
+
         # Validate response structure
         assert response.status_code == 200
         data = response.json()
         assert "weather_data" in data
         assert "analysis" in data
         assert "metadata" in data
-        
+
         # Validate weather data completeness
         weather = data["weather_data"]
         assert "location" in weather
         assert "temperature" in weather
         assert "conditions" in weather
-        
+
         # Validate analysis quality
         analysis = data["analysis"]
         assert len(analysis) > 50  # Meaningful analysis length
         assert "temperature" in analysis.lower()
         assert "weather" in analysis.lower()
-        
+
     def test_authentication_enforcement(self):
         """Test API key authentication."""
         # Test missing API key
         response = client.post("/weather", json={"query": "test"})
         assert response.status_code == 401
-        
+
         # Test invalid API key
         headers = {"X-API-Key": "invalid-key"}
         response = client.post("/weather", json={"query": "test"}, headers=headers)
         assert response.status_code == 401
-        
+
         # Test valid API key
         headers = {"X-API-Key": "test-api-key"}
         response = client.post("/weather", json={"query": "weather in Paris"}, headers=headers)
         assert response.status_code == 200
-        
+
     def test_error_handling_scenarios(self):
         """Test various error conditions."""
         # Test malformed request
         response = client.post("/weather", json={})
         assert response.status_code == 422
-        
+
         # Test empty query
         response = client.post("/weather", json={"query": ""})
         assert response.status_code == 400
-        
+
         # Test extremely long query
         long_query = "weather " * 1000
         response = client.post("/weather", json={"query": long_query})
@@ -1260,7 +1260,7 @@ class TestAPIEndToEnd:
 @pytest.mark.e2e
 class TestHealthCheckE2E:
     """Test health check across all deployment layers."""
-    
+
     def test_internal_health_endpoint(self):
         """Test internal /health endpoint."""
         response = client.get("/health")
@@ -1268,7 +1268,7 @@ class TestHealthCheckE2E:
         data = response.json()
         assert data["status"] == "healthy"
         assert "timestamp" in data
-        
+
     @pytest.mark.skip(reason="Requires proxy deployment")
     def test_external_healthz_proxy(self):
         """Test external /healthz via Cloudflare proxy."""
@@ -1277,7 +1277,7 @@ class TestHealthCheckE2E:
         response = requests.get(proxy_url, timeout=10)
         assert response.status_code == 200
         assert response.json() == {"ok": True}
-        
+
     def test_health_check_dependencies(self):
         """Test health check dependency validation."""
         # Mock dependency failures
@@ -1294,7 +1294,7 @@ pytest --cov=. --cov-report=html --cov-report=term
 
 # Run specific test categories
 pytest tests/test_parser.py -v                    # Parser unit tests
-pytest tests/test_mcp_*.py -v                     # MCP protocol tests  
+pytest tests/test_mcp_*.py -v                     # MCP protocol tests
 pytest -m integration -v                          # Integration tests only
 pytest -m e2e -v                                 # End-to-end tests only
 
@@ -1324,21 +1324,21 @@ pytest --cov=crew.parser --cov-report=term-missing
 def test_query_processing_performance():
     """Test query processing performance benchmarks."""
     import time
-    
+
     queries = [
         "weather in Tokyo tomorrow",
-        "temperature in New York for next week", 
+        "temperature in New York for next week",
         "forecast for London from Monday to Friday"
     ]
-    
+
     start_time = time.time()
     for query in queries * 10:  # 30 total queries
         response = client.post("/weather", json={"query": query})
         assert response.status_code == 200
-    
+
     total_time = time.time() - start_time
     avg_time = total_time / 30
-    
+
     # Performance assertions
     assert avg_time < 2.0  # Average response under 2 seconds
     assert total_time < 45  # Total time under 45 seconds
@@ -1352,7 +1352,7 @@ def sample_weather_queries():
     """Standard set of test queries for consistency."""
     return [
         "weather in Paris today",
-        "temperature in Tokyo tomorrow", 
+        "temperature in Tokyo tomorrow",
         "forecast for New York next week",
         "climate data for London this month"
     ]
@@ -1498,8 +1498,15 @@ WEATHER_PROVIDER="open-meteo"
 
 **Local Development**:
 ```bash
-# Install dependencies
-pip install -e ".[test]"
+# Set up virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies including development tools
+pip install -e ".[dev,test]"
+
+# Install pre-commit hooks
+pre-commit install
 
 # Run in development mode
 export API_KEY="YOUR_DEV_API_KEY_HERE"
@@ -1509,17 +1516,84 @@ python -m uvicorn api.main:app --reload
 pytest -v --cov=.
 ```
 
-**Code Quality**:
-- Black for code formatting
-- isort for import sorting
-- pytest for testing
-- Type hints encouraged but not enforced
+**Pre-commit Hooks** 🛡️:
+The project includes comprehensive pre-commit hooks that **automatically prevent commits with failing tests**:
 
-**Git Workflow**:
-- Feature branches for new development
-- Pull requests for code review
-- Automated testing on push
-- Semantic versioning for releases
+```yaml
+# .pre-commit-config.yaml configuration includes:
+- trim trailing whitespace          # Remove trailing spaces
+- fix end of files                  # Ensure files end with newline
+- check yaml                        # Validate YAML syntax
+- check for large files             # Prevent large file commits
+- check for merge conflicts         # Detect merge conflict markers
+- debug statements detection        # Find leftover debug code
+- black (Python formatting)        # Auto-format Python code
+- isort (import sorting)           # Organize Python imports
+- flake8 (code quality)            # Style guide enforcement
+- pytest-check                     # RUN ALL TESTS BEFORE COMMIT
+```
+
+**Pre-commit Usage**:
+```bash
+# Run pre-commit on all files (one-time cleanup)
+pre-commit run --all-files
+
+# Pre-commit runs automatically on git commit
+git add .
+git commit -m "Your changes"  # Will run all hooks automatically
+
+# If tests fail, commit is PREVENTED:
+# pytest-check.............................................................Failed
+# !!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# Skip pre-commit (NOT RECOMMENDED):
+git commit --no-verify -m "Emergency fix"
+
+# Manual pre-commit run
+pre-commit run pytest-check          # Run only tests
+pre-commit run black                 # Run only code formatting
+```
+
+**Code Quality Standards**:
+- **Black** for automatic Python code formatting (88 char line length)
+- **isort** for import sorting with Black compatibility profile
+- **flake8** for style guide enforcement and code quality
+- **pytest** for comprehensive testing (REQUIRED before commits)
+- **Type hints** encouraged for better code documentation
+
+**Development Dependencies**:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pre-commit>=3.6.0",      # Git hook framework
+    "black>=23.12.0",         # Code formatter
+    "isort>=5.13.0",          # Import sorter
+    "flake8>=7.0.0",          # Style checker
+]
+test = [
+    "pytest>=7.4.0",         # Testing framework
+    "pytest-asyncio>=0.21.0", # Async test support
+    "httpx>=0.25.0",          # Test HTTP client
+    "docker>=6.1.0",          # Container testing
+]
+```
+
+**Git Workflow with Pre-commit Protection**:
+1. **Feature branches** for new development
+2. **Pre-commit hooks** automatically run on every commit
+3. **Test failures** prevent commits (ensures code quality)
+4. **Code formatting** applied automatically
+5. **Pull requests** for code review
+6. **Automated testing** on push
+7. **Semantic versioning** for releases
+
+**Quality Gates**:
+- ✅ All tests must pass before commit
+- ✅ Code must be properly formatted (Black)
+- ✅ Imports must be sorted (isort)
+- ✅ Style guide compliance (flake8)
+- ✅ No trailing whitespace or file issues
+- ✅ No debug statements in production code
 
 ### 🐛 Debugging Guide
 
@@ -1553,7 +1627,7 @@ pytest -v --cov=.
    parser = DateRangeParser()
    result = parser.parse_query("your query here")
    print(result)
-   
+
    # Or test the main interface
    result = parse_natural_language({"query": "your query here"})
    print(result)
@@ -1579,8 +1653,15 @@ jq 'select(.level == "ERROR") | .message' app.log | sort | uniq -c
 
 **Local Development:**
 ```bash
-# Install dependencies
-pip install -e ".[test]"
+# Set up virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies including development tools
+pip install -e ".[dev,test]"
+
+# Install pre-commit hooks (IMPORTANT)
+pre-commit install
 
 # Set environment variables
 export API_KEY="YOUR_DEV_API_KEY_HERE"
@@ -1590,13 +1671,42 @@ export LOG_LEVEL="INFO"
 python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+**Pre-commit Operations:**
+```bash
+# One-time cleanup of all files
+pre-commit run --all-files
+
+# Run specific hooks manually
+pre-commit run black              # Format Python code
+pre-commit run isort              # Sort imports
+pre-commit run flake8             # Check style
+pre-commit run pytest-check       # Run all tests
+
+# Automatic execution on commit
+git add .
+git commit -m "Your message"      # Pre-commit runs automatically
+
+# Skip pre-commit (emergency only)
+git commit --no-verify -m "Emergency fix"
+```
+
 **Testing:**
 ```bash
 # Run all tests with coverage
 pytest -v --cov=.
 
-# Run specific test file
-pytest tests/test_parser.py -v
+# Run specific test categories
+pytest tests/test_parser.py -v               # Parser tests
+pytest -m integration -v                     # Integration tests
+pytest -m "not integration" -v               # Unit tests only
+
+# Run tests with different output formats
+pytest --tb=short -q                         # Minimal output
+pytest --tb=long -v                          # Detailed output
+
+# Generate coverage reports
+pytest --cov=. --cov-report=html            # HTML report
+pytest --cov=. --cov-report=term-missing    # Terminal with missing lines
 
 # Run integration tests
 python run_integration_tests.py
@@ -1707,7 +1817,7 @@ grep "ERROR" api.log | jq .
 
 **External Solution:** We deployed a Cloudflare Worker reverse proxy that maps `/healthz` requests to the Cloud Run `/health` endpoint.
 
-**Reason for Google Cloud Run Restriction:** 
+**Reason for Google Cloud Run Restriction:**
 Google Cloud Run has reserved URL paths that cannot be used by applications. According to the [official Google Cloud Run documentation on Known Issues](https://cloud.google.com/run/docs/known-issues#ah), the following URL paths are reserved:
 - `/eventlog`
 - Paths starting with `/_ah/`
@@ -1746,7 +1856,7 @@ wrangler login
 cd proxy && wrangler deploy
 ```
 
-**Final Result:** 
+**Final Result:**
 - `curl -s https://your-worker.workers.dev/healthz` returns `{"ok": true}` exactly as required
 - Full assignment compliance maintained
 - Zero-cost solution using Cloudflare Workers free tier

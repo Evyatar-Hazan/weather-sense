@@ -1,14 +1,14 @@
 /**
  * Cloudflare Worker Reverse Proxy for WeatherSense Health Check Endpoint
- * 
+ *
  * This Worker provides a zero-cost solution to the Google Cloud Run `/healthz` restriction.
  * It maps `/healthz` requests to the Cloud Run `/health` endpoint while preserving
  * all other functionality.
- * 
+ *
  * Functionality:
  * - /healthz → proxies to Cloud Run /health endpoint
  * - All other paths → forwards directly to Cloud Run service
- * 
+ *
  * Google Cloud Run Issue:
  * Cloud Run reserves paths ending with 'z' (including /healthz) and returns 404.
  * This proxy maintains assignment compliance by exposing /healthz externally
@@ -39,7 +39,7 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
-      
+
       // Handle CORS preflight requests
       if (request.method === "OPTIONS") {
         return new Response(null, {
@@ -47,15 +47,15 @@ export default {
           headers: CORS_HEADERS,
         });
       }
-      
+
       // Special handling for /healthz endpoint
       if (path === "/healthz") {
         return await handleHealthzRequest(request);
       }
-      
+
       // Forward all other requests to Cloud Run service
       return await forwardRequest(request, url);
-      
+
     } catch (error) {
       console.error("Proxy error:", error.message);
       return new Response(
@@ -84,18 +84,18 @@ async function handleHealthzRequest(request) {
   try {
     // Create new request to /health endpoint
     const healthUrl = `${CLOUD_RUN_BASE_URL}/health`;
-    
+
     const healthRequest = new Request(healthUrl, {
       method: request.method,
       headers: request.headers,
-      body: request.method !== "GET" && request.method !== "HEAD" 
-        ? request.body 
+      body: request.method !== "GET" && request.method !== "HEAD"
+        ? request.body
         : null,
     });
-    
+
     // Fetch from Cloud Run /health endpoint
     const response = await fetch(healthRequest);
-    
+
     // Clone response to add CORS headers
     const modifiedResponse = new Response(response.body, {
       status: response.status,
@@ -105,12 +105,12 @@ async function handleHealthzRequest(request) {
         ...CORS_HEADERS,
       },
     });
-    
+
     return modifiedResponse;
-    
+
   } catch (error) {
     console.error("Health check proxy error:", error.message);
-    
+
     // Return error response that matches API format
     return new Response(
       JSON.stringify({
@@ -138,19 +138,19 @@ async function forwardRequest(request, url) {
   try {
     // Construct target URL with same path and query parameters
     const targetUrl = `${CLOUD_RUN_BASE_URL}${url.pathname}${url.search}`;
-    
+
     // Create forwarded request with same headers and body
     const forwardedRequest = new Request(targetUrl, {
       method: request.method,
       headers: request.headers,
-      body: request.method !== "GET" && request.method !== "HEAD" 
-        ? request.body 
+      body: request.method !== "GET" && request.method !== "HEAD"
+        ? request.body
         : null,
     });
-    
+
     // Fetch from Cloud Run service
     const response = await fetch(forwardedRequest);
-    
+
     // Clone response to add CORS headers
     const modifiedResponse = new Response(response.body, {
       status: response.status,
@@ -160,12 +160,12 @@ async function forwardRequest(request, url) {
         ...CORS_HEADERS,
       },
     });
-    
+
     return modifiedResponse;
-    
+
   } catch (error) {
     console.error("Forward request error:", error.message);
-    
+
     // Return error response
     return new Response(
       JSON.stringify({

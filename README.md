@@ -200,7 +200,7 @@ DEPLOYMENT_ENV=docker
 
 #### 🔑 API Key Configuration Notes
 
-**Local Development**: 
+**Local Development**:
 - You can use **any API key value** (e.g., `test-key`, `dev-123`, `local-development`)
 - The application validates that an API key exists but doesn't verify it against a database
 - This allows free local testing and development
@@ -346,7 +346,7 @@ gcloud run deploy $SERVICE_NAME \
 
 ### Live Demo
 
-🌍 **Production Instance**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app  
+🌍 **Production Instance**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app
 🔑 **Demo API Key (Valid until Nov 15, 2025)**: `interview-demo-20251029-974213a2e493d09f`
 
 #### Try it Now
@@ -395,14 +395,14 @@ curl https://weather-sense-service-1061398738.us-central1.run.app/health
 # Response: {"ok": true}
 ```
 
-**Proxy (Cloudflare Worker)**  
+**Proxy (Cloudflare Worker)**
 ```bash
 # Health check (Assignment-compliant endpoint)
 curl https://weather-sense-proxy.weather-sense.workers.dev/healthz
 # Response: {"ok": true}
 ```
 
-**Purpose**: Health check endpoints  
+**Purpose**: Health check endpoints
 **Authentication**: ❌ Not required
 
 **Note**: Cloud Run reserves paths ending with 'z' (like `/healthz`), so we use `/health` for direct access and the proxy provides `/healthz` for assignment compliance. See [Cloud Run Known Issues](https://cloud.google.com/run/docs/known-issues#ah) for details.
@@ -425,11 +425,11 @@ curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/a
   -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
 ```
 
-**Purpose**: Process natural language weather queries  
+**Purpose**: Process natural language weather queries
 **Authentication**: ✅ Required
 
 #### GET /health, /ping
-**Purpose**: Health check endpoints  
+**Purpose**: Health check endpoints
 **Authentication**: ❌ Not required
 
 **Response**:
@@ -440,7 +440,7 @@ curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/a
 **Note**: Cloud Run reserves paths ending with 'z' (like `/healthz`), so we use `/health` instead. See [Cloud Run Known Issues](https://cloud.google.com/run/docs/known-issues#ah) for details.
 
 #### POST /v1/weather/ask
-**Purpose**: Process natural language weather queries  
+**Purpose**: Process natural language weather queries
 **Authentication**: ✅ Required
 
 **Request Body**:
@@ -456,7 +456,7 @@ curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/a
   "summary": "Weather summary for Tel Aviv, IL from October 20 to October 24, 2025...",
   "params": {
     "location": "Tel Aviv, IL",
-    "start_date": "2025-10-20", 
+    "start_date": "2025-10-20",
     "end_date": "2025-10-24",
     "units": "metric"
   },
@@ -465,7 +465,7 @@ curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/a
       {
         "date": "2025-10-20",
         "tmin": 20.1,
-        "tmax": 28.3, 
+        "tmax": 28.3,
         "precip_mm": 0.0,
         "wind_max_kph": 20.0,
         "code": 1
@@ -536,7 +536,7 @@ curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/we
 "Tel Aviv weather this week"
 "London weather from yesterday to today"
 
-# Specific dates  
+# Specific dates
 "weather in Paris from October 15 to October 20, imperial"
 "Tokyo temperature between 2025-10-01 and 2025-10-07"
 
@@ -549,7 +549,7 @@ curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/we
 ### Common Installation Issues
 
 #### 1. Command Not Found
-**Problem**: `python: command not found`  
+**Problem**: `python: command not found`
 **Solution**: Use `python3` on Ubuntu/Debian systems:
 ```bash
 python3 -m venv .venv
@@ -557,7 +557,7 @@ python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 #### 2. Port Already in Use
-**Problem**: `Address already in use` or port 8000 busy  
+**Problem**: `Address already in use` or port 8000 busy
 **Solution**: Use different port:
 ```bash
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
@@ -565,7 +565,7 @@ curl http://localhost:8080/health  # Test with new port
 ```
 
 #### 3. Module Not Found
-**Problem**: Import errors after installation  
+**Problem**: Import errors after installation
 **Solution**: Verify virtual environment:
 ```bash
 source .venv/bin/activate  # Should show (.venv) in prompt
@@ -574,7 +574,7 @@ pip list | grep weather-sense  # Should show package
 ```
 
 #### 4. Environment Setup
-**Problem**: `uvicorn: command not found`  
+**Problem**: `uvicorn: command not found`
 **Solution**: Reinstall in virtual environment:
 ```bash
 cd weather-sense  # Ensure correct directory
@@ -585,7 +585,7 @@ pip install -e .
 ### Runtime Issues
 
 #### 5. API Authentication Errors
-**Problem**: 401 Unauthorized responses  
+**Problem**: 401 Unauthorized responses
 **Solution**: Verify API key configuration:
 ```bash
 echo $API_KEY  # Should show your key
@@ -600,7 +600,7 @@ export API_KEY="my-development-key"
 **Note**: Local development accepts any API key value. Production requires a valid key from admin.
 
 #### 6. MCP Tool Failures
-**Problem**: MCP timeout or communication errors  
+**Problem**: MCP timeout or communication errors
 **Solution**: Test MCP tool directly:
 ```bash
 echo '{"location": "Tokyo", "start_date": "2025-10-25", "end_date": "2025-10-26", "units": "metric"}' | \
@@ -608,7 +608,7 @@ python mcp_weather/server.py
 ```
 
 #### 7. Docker Issues
-**Problem**: Container startup failures  
+**Problem**: Container startup failures
 **Solution**: Check logs and environment:
 ```bash
 docker logs <container-id>
@@ -667,7 +667,7 @@ WeatherSense is a production-ready weather analysis service that demonstrates:
 
 **Production Features**:
 - Structured logging with request tracking
-- API authentication and error handling  
+- API authentication and error handling
 - Auto-scaling deployment with health monitoring
 
 ---

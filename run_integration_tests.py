@@ -7,15 +7,15 @@ fully meets deployment requirements without mocks or stubs.
 
 Usage:
     python run_integration_tests.py [--verbose] [--test-class CLASS_NAME]
-    
+
 Example:
     python run_integration_tests.py --verbose
     python run_integration_tests.py --test-class TestSingleDockerImage
 """
-import sys
-import os
 import argparse
 import logging
+import os
+import sys
 from pathlib import Path
 
 # Add the project root to Python path
@@ -24,26 +24,22 @@ sys.path.insert(0, str(project_root))
 
 # Import our integration tests
 from tests.test_deployment_integration import (
-    TestSingleDockerImage,
-    TestCloudRunDeployment,
     TestAuthenticationBehavior,
-    TestProcessManagement,
+    TestCloudRunDeployment,
     TestDocumentationValidation,
-    run_integration_tests
+    TestProcessManagement,
+    TestSingleDockerImage,
+    run_integration_tests,
 )
 
 
 def setup_logging(verbose: bool = False):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
-    format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    
+    format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
     logging.basicConfig(
-        level=level,
-        format=format_str,
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
+        level=level, format=format_str, handlers=[logging.StreamHandler(sys.stdout)]
     )
 
 
@@ -51,29 +47,31 @@ def run_specific_test_class(class_name: str, verbose: bool = False):
     """Run tests for a specific test class."""
     setup_logging(verbose)
     logger = logging.getLogger(__name__)
-    
+
     test_classes = {
         "TestSingleDockerImage": TestSingleDockerImage,
         "TestCloudRunDeployment": TestCloudRunDeployment,
         "TestAuthenticationBehavior": TestAuthenticationBehavior,
         "TestProcessManagement": TestProcessManagement,
-        "TestDocumentationValidation": TestDocumentationValidation
+        "TestDocumentationValidation": TestDocumentationValidation,
     }
-    
+
     if class_name not in test_classes:
         logger.error(f"Unknown test class: {class_name}")
         logger.error(f"Available classes: {', '.join(test_classes.keys())}")
         return False
-    
+
     logger.info(f"Running {class_name} tests...")
-    
+
     test_class = test_classes[class_name]
     test_instance = test_class()
-    test_methods = [method for method in dir(test_instance) if method.startswith('test_')]
-    
+    test_methods = [
+        method for method in dir(test_instance) if method.startswith("test_")
+    ]
+
     passed = 0
     total = 0
-    
+
     try:
         for method_name in test_methods:
             total += 1
@@ -87,18 +85,20 @@ def run_specific_test_class(class_name: str, verbose: bool = False):
                 logger.error(f"❌ {method_name} FAILED: {e}")
                 if verbose:
                     import traceback
+
                     traceback.print_exc()
             finally:
                 # Clean up after each test
                 test_instance.cleanup_docker_resources()
-                
+
     except Exception as e:
         logger.error(f"Failed to run {class_name}: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         return False
-    
+
     logger.info(f"\n{class_name} Summary: {passed}/{total} tests passed")
     return passed == total
 
@@ -107,10 +107,10 @@ def run_all_tests(verbose: bool = False):
     """Run all integration tests."""
     setup_logging(verbose)
     logger = logging.getLogger(__name__)
-    
+
     logger.info("Starting WeatherSense Deployment Integration Tests")
     logger.info("=" * 80)
-    
+
     # Check dependencies
     try:
         import docker
@@ -119,7 +119,7 @@ def run_all_tests(verbose: bool = False):
         logger.error(f"Missing required dependency: {e}")
         logger.error("Please install test dependencies: pip install -e '.[test]'")
         return False
-    
+
     # Check Docker is available
     try:
         docker_client = docker.from_env()
@@ -128,18 +128,18 @@ def run_all_tests(verbose: bool = False):
         logger.error(f"Docker is not available: {e}")
         logger.error("Please ensure Docker is installed and running")
         return False
-    
+
     # Run all tests
     test_results = run_integration_tests()
-    
+
     # Print summary
     logger.info("\n" + "=" * 80)
     logger.info("INTEGRATION TESTS SUMMARY")
     logger.info("=" * 80)
-    
+
     total_tests = 0
     passed_tests = 0
-    
+
     for class_name, methods in test_results.items():
         logger.info(f"\n{class_name}:")
         for method, result in methods.items():
@@ -150,16 +150,16 @@ def run_all_tests(verbose: bool = False):
                     logger.info(f"  ✅ {method}")
                 else:
                     logger.info(f"  ❌ {method}: {result}")
-        
+
         if "class_error" in methods:
             logger.error(f"  ❌ Class error: {methods['class_error']}")
-    
+
     logger.info(f"\nFINAL SUMMARY: {passed_tests}/{total_tests} tests passed")
-    
+
     if passed_tests == total_tests:
         logger.info("🎉 ALL INTEGRATION TESTS PASSED!")
         logger.info("\n✅ Your WeatherSense deployment meets all requirements:")
-        logger.info("   • Single Docker image builds successfully")  
+        logger.info("   • Single Docker image builds successfully")
         logger.info("   • FastAPI and MCP communication works correctly")
         logger.info("   • Cloud Run deployment configuration is valid")
         logger.info("   • Authentication behavior matches specifications")
@@ -177,43 +177,45 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Run WeatherSense deployment integration tests",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    
+
     parser.add_argument(
-        "--verbose", "-v", 
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Enable verbose logging with debug information"
+        help="Enable verbose logging with debug information",
     )
-    
+
     parser.add_argument(
-        "--test-class", "-c",
+        "--test-class",
+        "-c",
         type=str,
-        help="Run tests for specific class only (e.g., TestSingleDockerImage)"
+        help="Run tests for specific class only (e.g., TestSingleDockerImage)",
     )
-    
+
     parser.add_argument(
-        "--list-classes", "-l",
-        action="store_true", 
-        help="List available test classes"
+        "--list-classes", "-l", action="store_true", help="List available test classes"
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.list_classes:
         print("Available test classes:")
         print("  • TestSingleDockerImage - Validates Docker image and service startup")
-        print("  • TestCloudRunDeployment - Validates Cloud Run configuration") 
+        print("  • TestCloudRunDeployment - Validates Cloud Run configuration")
         print("  • TestAuthenticationBehavior - Validates authentication requirements")
-        print("  • TestProcessManagement - Validates process spawning and communication")
+        print(
+            "  • TestProcessManagement - Validates process spawning and communication"
+        )
         print("  • TestDocumentationValidation - Validates README and Dockerfile")
         return
-    
+
     if args.test_class:
         success = run_specific_test_class(args.test_class, args.verbose)
     else:
         success = run_all_tests(args.verbose)
-    
+
     sys.exit(0 if success else 1)
 
 
