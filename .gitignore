@@ -10,6 +10,18 @@ build.log
 nohup.out
 revoke_interview_key.sh
 
+# Cloudflare Workers development files
+proxy/.wrangler/
+proxy/node_modules/
+*.wrangler/
+.wrangler/
+
+# Node.js dependencies (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # C extensions
 *.so
 
@@ -247,3 +259,4 @@ output/
 reports/
 
 WeatherSense Assignment.pdf
+proxy/.wrangler

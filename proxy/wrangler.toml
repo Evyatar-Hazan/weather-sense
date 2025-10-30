@@ -1,0 +1,52 @@
+# Wrangler Configuration for WeatherSense Proxy Worker
+# 
+# This configuration file defines the deployment settings for the Cloudflare Worker
+# that provides /healthz endpoint compatibility for Google Cloud Run.
+#
+# Deployment commands:
+#   - Install wrangler: npm install -g wrangler
+#   - Login to Cloudflare: wrangler login
+#   - Deploy: wrangler deploy
+#   - View logs: wrangler tail
+
+name = "weather-sense-proxy"
+main = "index.js"
+compatibility_date = "2024-10-30"
+compatibility_flags = ["nodejs_compat"]
+
+# Worker configuration
+[env.production]
+name = "weather-sense-proxy"
+
+# Development environment (optional)
+[env.development]
+name = "weather-sense-proxy-dev"
+
+# Environment variables (can be set via Cloudflare dashboard or CLI)
+# Example: wrangler secret put API_KEY
+# Note: The Cloud Run URL is hardcoded in index.js for simplicity
+# For production, consider using environment variables:
+# [vars]
+# CLOUD_RUN_URL = "https://your-service.run.app"
+
+# Worker limits and settings
+# Free tier: 100,000 requests/day, 10ms CPU time/request
+# No additional configuration needed for basic proxy functionality
+
+# Optional: Custom domain configuration
+# Uncomment and configure if you have a custom domain:
+# [env.production]
+# routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+
+# Optional: KV storage (not needed for this proxy)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Optional: Analytics and monitoring
+# [analytics_engine_datasets]
+# [[analytics_engine_datasets.bindings]]
+# name = "ANALYTICS"
+# dataset = "weather_sense_proxy_analytics"

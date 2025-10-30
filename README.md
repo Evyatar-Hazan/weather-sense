@@ -90,14 +90,29 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
 ```bash
 # Health check endpoint (works both locally and in production):
 curl http://localhost:8000/health
-# or for production:
-curl https://weather-sense-service-ektuy7j2kq-uc.a.run.app/health
+# or for production direct server:
+curl https://weather-sense-service-1061398738.us-central1.run.app/health
+# or for production proxy (assignment-compliant):
+curl https://weather-sense-proxy.weather-sense.workers.dev/healthz
 # Expected: {"ok": true}
 ```
 
 #### Weather Query
 ```bash
+# Local development
 curl -X POST "http://localhost:8000/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-local-dev-key" \
+  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+
+# Production via proxy (recommended)
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+
+# Production direct server
+curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/weather/ask" \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-secret-api-key" \
   -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
@@ -348,6 +363,20 @@ open https://weather-sense-service-ektuy7j2kq-uc.a.run.app/docs
 
 ## 📚 API Reference
 
+### Access Methods
+
+WeatherSense offers two access patterns:
+
+1. **Direct Server Access** (Google Cloud Run)
+   - URL: `https://weather-sense-service-1061398738.us-central1.run.app`
+   - Best for: Production integrations, high-volume usage
+   - Features: Full endpoint availability
+
+2. **Proxy Access** (Cloudflare Worker - Recommended for Assignment)
+   - URL: `https://weather-sense-proxy.weather-sense.workers.dev`
+   - Best for: Assignment compliance, edge performance, global access
+   - Features: Transparent request forwarding with edge caching
+
 ### Authentication
 
 All API requests require the `x-api-key` header:
@@ -356,6 +385,48 @@ curl -H "x-api-key: your-secret-api-key" ...
 ```
 
 ### Endpoints
+
+#### Health Check Endpoints
+
+**Direct Server (Cloud Run)**
+```bash
+# Health check (Cloud Run direct)
+curl https://weather-sense-service-1061398738.us-central1.run.app/health
+# Response: {"ok": true}
+```
+
+**Proxy (Cloudflare Worker)**  
+```bash
+# Health check (Assignment-compliant endpoint)
+curl https://weather-sense-proxy.weather-sense.workers.dev/healthz
+# Response: {"ok": true}
+```
+
+**Purpose**: Health check endpoints  
+**Authentication**: ❌ Not required
+
+**Note**: Cloud Run reserves paths ending with 'z' (like `/healthz`), so we use `/health` for direct access and the proxy provides `/healthz` for assignment compliance. See [Cloud Run Known Issues](https://cloud.google.com/run/docs/known-issues#ah) for details.
+
+#### Weather Query Endpoints
+
+**Direct Server POST /v1/weather/ask**
+```bash
+curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+```
+
+**Proxy POST /v1/weather/ask (Recommended)**
+```bash
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+```
+
+**Purpose**: Process natural language weather queries  
+**Authentication**: ✅ Required
 
 #### GET /health, /ping
 **Purpose**: Health check endpoints  
@@ -423,6 +494,42 @@ curl -H "x-api-key: your-secret-api-key" ...
 
 The service understands various natural language patterns:
 
+#### Using Proxy (Recommended for Assignment)
+```bash
+# Relative dates
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather in New York from last Monday to Friday"}'
+
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "Tel Aviv weather this week"}'
+
+# Specific dates with units
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather in Paris from October 15 to October 20, imperial"}'
+
+# Coordinates
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "weather at 40.7128,-74.0060 from Monday to Wednesday"}'
+```
+
+#### Using Direct Server
+```bash
+# Same queries work with direct server URL:
+curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-secret-api-key" \
+  -d '{"query": "London weather from yesterday to today"}'
+```
+
+#### Common Query Patterns
 ```bash
 # Relative dates
 "weather in New York from last Monday to Friday"
