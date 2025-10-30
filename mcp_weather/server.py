@@ -7,18 +7,66 @@ import logging
 import sys
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict
 
 from cache import weather_cache
 from provider import WeatherProvider
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='{"timestamp":"%(asctime)s","level":"%(levelname)s","message":"%(message)s","request_id":"%(request_id)s","tool":"weather.get_range","duration_ms":%(duration_ms)s}',
-    handlers=[logging.StreamHandler(sys.stderr)],
-)
+
+class MCPStructuredJSONFormatter(logging.Formatter):
+    """Structured JSON formatter for MCP server with tool identification."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        # Base log entry
+        log_entry = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "tool": "weather.get_range",  # MCP tool identifier
+        }
+
+        # Add structured fields if present
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
+
+        if hasattr(record, "duration_ms"):
+            log_entry["duration_ms"] = record.duration_ms
+
+        if hasattr(record, "task"):
+            log_entry["task"] = record.task
+
+        if hasattr(record, "status"):
+            log_entry["status"] = record.status
+
+        # Add exception info if present
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_entry, ensure_ascii=False)
+
+
+def setup_mcp_logging(log_level: str = "INFO") -> None:
+    """Setup structured logging configuration for MCP server."""
+    # Create formatter with ISO timestamp format
+    formatter = MCPStructuredJSONFormatter(datefmt="%Y-%m-%dT%H:%M:%S")
+
+    # Setup root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+
+    # Remove existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Add stderr handler with structured formatter
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(formatter)
+    root_logger.addHandler(stderr_handler)
+
+
+# Initialize logging
+setup_mcp_logging()
 
 
 def validate_date_range(start_date: str, end_date: str) -> None:

@@ -145,12 +145,13 @@ python mcp_weather/server.py
 |-----------|-------------|----------------|
 | **API Layer** | `api/main.py` | FastAPI endpoints, request/response handling |
 | **Authentication** | `api/security.py` | API key validation and security |
-| **Logging** | `api/logging_config.py` | Structured JSON logging setup |
+| **Logging** | `api/logging_config.py` | Structured JSON logging setup (API server) |
+| **MCP Logging** | `mcp_weather/server.py` | Structured JSON logging setup (MCP server) |
 | **CrewAI Orchestration** | `crew/flow.py` | Task coordination (A→B→C pipeline) |
 | **Natural Language Parser** | `crew/parser.py` | Query parsing, date handling |
 | **MCP Client** | `crew/mcp_client.py` | MCP tool communication via stdio |
 | **Weather Analyst** | `crew/agents.py` | Weather data analysis and summarization |
-| **MCP Server** | `mcp_weather/server.py` | Stdio-based JSON communication |
+| **MCP Server** | `mcp_weather/server.py` | Stdio-based JSON communication with logging |
 | **Weather Provider** | `mcp_weather/provider.py` | Open-Meteo API integration |
 | **Caching Layer** | `mcp_weather/cache.py` | In-memory caching (10-min TTL) |
 

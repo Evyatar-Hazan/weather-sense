@@ -1426,6 +1426,7 @@ WEATHER_PROVIDER="open-meteo"
 ### 📊 Monitoring and Observability
 
 **Structured Logging Fields**:
+Both API server and MCP server use consistent structured JSON logging format:
 ```json
 {
   "timestamp": "2025-10-28T10:30:00Z",
@@ -1434,9 +1435,16 @@ WEATHER_PROVIDER="open-meteo"
   "request_id": "uuid-string",
   "task": "weather_query",
   "duration_ms": 1234,
-  "status": "success"
+  "status": "success",
+  "tool": "weather.get_range"
 }
 ```
+
+**Logging Components**:
+- **API Server**: Uses `StructuredJSONFormatter` from `api/logging_config.py`
+- **MCP Server**: Uses `MCPStructuredJSONFormatter` with tool identification
+- **Consistent Format**: Both use ISO timestamps and structured fields
+- **Exception Handling**: Automatic exception logging with stack traces
 
 **Metrics to Track**:
 - Request rate and latency percentiles
