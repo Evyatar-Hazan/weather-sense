@@ -345,6 +345,77 @@ python validate_deployment.py
 🎉 DEPLOYMENT VALIDATION SUCCESSFUL!
 ```
 
+## � Security
+
+### Security Validation Framework
+
+WeatherSense includes a comprehensive security validation system to protect against malicious inputs and ensure safe operation:
+
+#### Security Features
+- **XSS Prevention**: Automatic detection and sanitization of script injection attempts
+- **SQL Injection Protection**: Pattern-based detection of SQL injection attempts
+- **Input Sanitization**: Removal of dangerous characters while preserving valid input
+- **Coordinate Validation**: Geographic boundary validation for latitude/longitude values
+- **Rate Limiting**: 30 requests per minute per IP address with proxy header support
+- **Input Length Limits**: Maximum query length (1000 chars) and location length (200 chars)
+
+#### Security Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **SecurityValidator** | `utils/security.py` | Core security validation framework |
+| **Rate Limiter** | `api/main.py` | Request rate limiting with proxy support |
+| **Input Validator** | `crew/input_validator.py` | Modular input validation |
+| **Security Tests** | `tests/test_security_validation.py` | Comprehensive security testing |
+
+#### Protected Input Types
+
+```python
+# XSS Prevention Examples
+malicious_input = "<script>alert('xss')</script> weather in London"
+result = parser.parse_query(malicious_input)  # ❌ Blocked/Sanitized
+
+# SQL Injection Prevention
+malicious_query = "weather in London'; DROP TABLE users; --"
+result = parser.parse_query(malicious_query)  # ❌ Blocked/Sanitized
+
+# Coordinate Validation
+invalid_coords = "weather at 91.0, 34.78"  # ❌ Invalid latitude > 90
+valid_coords = "weather at 32.08, 34.78"   # ✅ Valid coordinates
+
+# Rate Limiting
+# More than 30 requests/minute from same IP = HTTP 429
+```
+
+#### Rate Limiting Configuration
+
+```python
+# Rate limiting settings in api/main.py
+RATE_LIMIT_REQUESTS = 30     # requests per minute
+RATE_LIMIT_WINDOW = 60       # time window in seconds
+
+# Proxy support for Cloud Run deployment
+def get_client_ip(request):
+    # Checks X-Forwarded-For, X-Real-IP headers
+    # Falls back to client IP for local development
+```
+
+#### Security Testing
+
+```bash
+# Run security validation tests
+pytest tests/test_security_validation.py -v
+
+# Test categories include:
+# - XSS prevention
+# - SQL injection protection
+# - Coordinate validation
+# - Long input handling
+# - Special character handling
+# - Empty input validation
+# - Normal query functionality
+```
+
 ## 🚀 Deployment & Production
 
 ### Docker Deployment

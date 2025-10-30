@@ -7,7 +7,6 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional
 
 from dateutil.parser import parse as dateutil_parse
-from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +98,18 @@ class DateRangeParser:
         # Look for common location patterns - more specific patterns first
         location_patterns = [
             # Pattern: "in/for <location> for/from/during/this/next/last"
-            r"\b(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d))",
+            r"\b(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|"
+            r"next|last|tomorrow|today|yesterday|\d))",
             # Pattern: "weather in/for <location>"
-            r"weather\s+(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)",
+            r"weather\s+(?:in|for)\s+([A-Za-z\s,.-]+?)(?:\s+(?:for|from|"
+            r"during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)",
             # Pattern: "forecast/temperature/climate data for <location>"
-            r"\b(?:forecast|temperature|climate)\s+(?:data\s+)?for\s+([A-Za-z\s,.-]+?)(?:\s+(?:from|during|this|next|last|tomorrow|today|yesterday|\d))",
+            r"\b(?:forecast|temperature|climate)\s+(?:data\s+)?for\s+"
+            r"([A-Za-z\s,.-]+?)(?:\s+(?:from|during|this|next|last|"
+            r"tomorrow|today|yesterday|\d))",
             # Pattern: "forecast <location>" but not time words
-            r"\bforecast\s+([A-Za-z][A-Za-z\s,.-]*?)(?:\s+(?:from|during|this|next|last|tomorrow|today|yesterday|\d)|\s*$)",
+            r"\bforecast\s+([A-Za-z][A-Za-z\s,.-]*?)(?:\s+(?:from|during|"
+            r"this|next|last|tomorrow|today|yesterday|\d)|\s*$)",
             # Pattern: "<location> weather"
             r"([A-Za-z\s,.-]+?)\s+weather",
             # Pattern: "in/for <location>" at end of query
