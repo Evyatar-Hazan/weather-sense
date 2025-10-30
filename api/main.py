@@ -5,10 +5,11 @@ import logging
 import os
 import time
 import uuid
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -22,6 +23,44 @@ from .security import verify_api_key_header
 # Setup logging
 setup_logging(os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
+
+# Simple rate limiting
+rate_limit_storage = defaultdict(list)  # {ip: [timestamp1, timestamp2, ...]}
+RATE_LIMIT_REQUESTS = 30
+RATE_LIMIT_WINDOW = 60  # seconds
+
+
+def check_rate_limit(client_ip: str) -> bool:
+    """Check if client IP is within rate limit."""
+    now = time.time()
+    # Clean old requests outside the window
+    rate_limit_storage[client_ip] = [
+        ts for ts in rate_limit_storage[client_ip] if now - ts < RATE_LIMIT_WINDOW
+    ]
+
+    # Check if under limit
+    if len(rate_limit_storage[client_ip]) >= RATE_LIMIT_REQUESTS:
+        return False
+
+    # Add current request
+    rate_limit_storage[client_ip].append(now)
+    return True
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    # Check for X-Forwarded-For header (common in reverse proxies)
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+
+    # Check for X-Real-IP header
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+
+    # Fall back to direct client IP
+    return request.client.host if request.client else "unknown"
 
 
 @asynccontextmanager
@@ -55,7 +94,8 @@ async def lifespan(app: FastAPI):
 
     # Log configuration
     logger.info(
-        f"Configuration: TZ={os.getenv('TZ')}, WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}"
+        f"Configuration: TZ={os.getenv('TZ')}, "
+        f"WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}"
     )
     if os.getenv("WEATHER_API_KEY"):
         logger.info("WEATHER_API_KEY is configured")
@@ -85,6 +125,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Add rate limiting state
+logger.info("Rate limiting initialized: 30 requests per minute per IP")
 
 # Add CORS middleware
 app.add_middleware(
@@ -129,12 +172,24 @@ async def health_check():
 @app.post("/v1/weather/ask", response_model=WeatherQueryResponse)
 async def weather_ask(
     request: WeatherQueryRequest,
+    raw_request: Request,
     x_api_key: str = Header(None, alias="x-api-key"),
     api_key: str = Depends(verify_api_key_header),
 ):
     """
     Process natural language weather query.
     """
+    # Check rate limit
+    client_ip = get_client_ip(raw_request)
+    if not check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "detail": "Rate limit exceeded. Try again later.",
+                "error_type": "rate_limited",
+                "retry_after": 60,
+            },
+        )
     request_id = str(uuid.uuid4())
     start_time = time.time()
 
@@ -246,8 +301,6 @@ async def weather_ask(
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Custom HTTP exception handler for consistent error responses."""
-    from fastapi.responses import JSONResponse
-
     # Handle both dict and string details
     if isinstance(exc.detail, dict):
         content = exc.detail

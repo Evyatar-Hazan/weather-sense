@@ -181,6 +181,23 @@ python mcp_weather/server.py
 | `WEATHER_API_KEY` | ❌ No | - | Optional API key for weather provider |
 | `DEPLOYMENT_ENV` | ❌ No | - | Set to `docker` for container mode |
 
+### Rate Limiting
+
+The API implements rate limiting to prevent abuse:
+
+| Endpoint | Rate Limit | Scope |
+|----------|------------|-------|
+| `POST /v1/weather/ask` | 30 requests/minute | Per IP address |
+| `GET /health` | No limit | All requests |
+
+**Rate Limit Response** (HTTP 429):
+```json
+{
+  "error": "rate_limited",
+  "hint": "Rate limit exceeded: 30 per 1 minute"
+}
+```
+
 ### Example Configuration
 
 Create a `.env` file in the project root:

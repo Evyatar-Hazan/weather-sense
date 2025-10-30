@@ -456,10 +456,12 @@ Access-Control-Max-Age: 86400
 }
 ```
 
-**Rate Limiting (when applicable):**
+**Rate Limiting (429):**
 ```json
 {
-  "detail": "Rate limit exceeded"
+  "detail": "Rate limit exceeded. Try again later.",
+  "error_type": "rate_limited",
+  "retry_after": 60
 }
 ```
 
@@ -1134,8 +1136,10 @@ class TestWeatherAPIIntegration:
 
     def test_rate_limiting_behavior(self):
         """Test API rate limiting and backoff."""
-        # Simulate high request volumes
-        # Validate backoff strategies
+        # Test 30 requests/minute limit enforcement
+        # Validate 429 status with structured response
+        # Check retry-after header functionality
+        # Test rate limit reset behavior
         # Test queue management
 ```
 
