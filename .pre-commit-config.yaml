@@ -1,0 +1,56 @@
+repos:
+  # Basic code formatting and linting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+
+  # Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=88", "--extend-ignore=E203,W503"]
+
+  # Run tests - this will prevent commit if tests fail
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        entry: python -m pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: ["-v", "--tb=short", "-x"]
+        stages: [pre-commit]
+
+  # Run tests for specific markers separately (optional)
+  - repo: local
+    hooks:
+      - id: pytest-unit-tests
+        name: pytest-unit-tests (non-integration)
+        entry: python -m pytest
+        language: system
+        pass_filenames: false
+        always_run: false
+        args: ["-v", "--tb=short", "-m", "not integration and not deployment and not e2e"]
+        stages: [manual]
