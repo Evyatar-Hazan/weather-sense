@@ -148,12 +148,44 @@ python mcp_weather/server.py
 | **Logging** | `api/logging_config.py` | Structured JSON logging setup (API server) |
 | **MCP Logging** | `mcp_weather/server.py` | Structured JSON logging setup (MCP server) |
 | **CrewAI Orchestration** | `crew/flow.py` | Task coordination (A→B→C pipeline) |
-| **Natural Language Parser** | `crew/parser.py` | Query parsing, date handling |
+| **Natural Language Parser** | `crew/parser.py` | Query parsing, date handling (legacy interface) |
+| **Modular Parser Components** | `crew/date_range_parser.py` | New modular parser with improved validation |
+| **Location Extraction** | `crew/location_extractor.py` | Dedicated location parsing with security validation |
+| **Date Range Extraction** | `crew/date_extractor.py` | Advanced date/time parsing with natural language support |
+| **Input Validation** | `crew/input_validator.py` | Comprehensive input sanitization and security checks |
 | **MCP Client** | `crew/mcp_client.py` | MCP tool communication via stdio |
 | **Weather Analyst** | `crew/agents.py` | Weather data analysis and summarization |
 | **MCP Server** | `mcp_weather/server.py` | Stdio-based JSON communication with logging |
 | **Weather Provider** | `mcp_weather/provider.py` | Open-Meteo API integration |
 | **Caching Layer** | `mcp_weather/cache.py` | In-memory caching (10-min TTL) |
+
+### Parser Architecture Refactoring
+
+The natural language parser has been refactored from a monolithic 455-line class into modular components for better maintainability, testing, and security:
+
+**New Modular Components:**
+- **`LocationExtractor`** - Handles location parsing with coordinate validation and security checks
+- **`DateRangeExtractor`** - Advanced date/time parsing supporting relative dates, weekdays, months
+- **`InputValidator`** - Comprehensive input sanitization preventing injection attacks
+- **`DateRangeParser`** - Central orchestrator combining all components with enhanced error handling
+
+**Security Improvements:**
+- Input length validation (max 1000 characters for queries, 200 for locations)
+- XSS/injection pattern detection using regex-based security scanning
+- Coordinate boundary validation (latitude: -90 to 90, longitude: -180 to 180)
+- Special character sanitization while preserving valid location names
+- Null byte and control character removal
+
+**Enhanced Parsing Capabilities:**
+- Better handling of complex date ranges ("from Monday to Friday")
+- Improved location extraction with multiple fallback strategies
+- Support for both absolute dates (2024-01-15) and relative dates (next Tuesday)
+- Robust error handling with detailed validation feedback
+
+**Backward Compatibility:**
+- Legacy `parser.py` interface preserved for existing integrations
+- All existing tests continue to pass without modification
+- Gradual migration path for future enhancements
 
 ### Core Workflows
 
@@ -181,20 +213,28 @@ python mcp_weather/server.py
 | `WEATHER_API_KEY` | ❌ No | - | Optional API key for weather provider |
 | `DEPLOYMENT_ENV` | ❌ No | - | Set to `docker` for container mode |
 
-### Rate Limiting
+### Rate Limiting and Resilience
 
-The API implements rate limiting to prevent abuse:
+The API implements comprehensive protection and retry mechanisms:
 
+**Rate Limiting:**
 | Endpoint | Rate Limit | Scope |
 |----------|------------|-------|
 | `POST /v1/weather/ask` | 30 requests/minute | Per IP address |
 | `GET /health` | No limit | All requests |
 
+**Retry Logic:**
+- **API Calls**: Exponential backoff for weather API failures (max 5 attempts)
+- **MCP Communication**: Retry logic for subprocess/process communication (max 3 attempts)
+- **Network Errors**: Automatic recovery from connection timeouts and temporary failures
+- **Jitter**: Random delays to prevent thundering herd effects
+
 **Rate Limit Response** (HTTP 429):
 ```json
 {
-  "error": "rate_limited",
-  "hint": "Rate limit exceeded: 30 per 1 minute"
+  "detail": "Rate limit exceeded. Try again later.",
+  "error_type": "rate_limited",
+  "retry_after": 60
 }
 ```
 

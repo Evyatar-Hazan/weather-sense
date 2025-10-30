@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["api*", "crew*", "mcp_weather*", "tests*"]
+include = ["api*", "crew*", "mcp_weather*", "utils*"]
 
 [project.optional-dependencies]
 test = [
