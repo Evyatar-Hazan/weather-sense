@@ -1,5 +1,5 @@
 # Wrangler Configuration for WeatherSense Proxy Worker
-# 
+#
 # This configuration file defines the deployment settings for the Cloudflare Worker
 # that provides /healthz endpoint compatibility for Google Cloud Run.
 #
@@ -49,4 +49,4 @@ name = "weather-sense-proxy-dev"
 # [analytics_engine_datasets]
 # [[analytics_engine_datasets.bindings]]
 # name = "ANALYTICS"
-# dataset = "weather_sense_proxy_analytics"
+# dataset = "weather_sense_proxy_analytics"w
