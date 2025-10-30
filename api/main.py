@@ -6,6 +6,7 @@ import time
 import uuid
 import logging
 from typing import Dict, Any, Optional
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Header, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,11 +23,65 @@ from crew.mcp_client import start_persistent_mcp_server, stop_persistent_mcp_ser
 setup_logging(os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan event handler."""
+    # Startup
+    logger.info("WeatherSense API starting up")
+    
+    # Validate required environment variables
+    required_env_vars = ["API_KEY"]
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {missing_vars}")
+        raise RuntimeError(f"Missing required environment variables: {missing_vars}")
+    
+    # Set default values for optional environment variables
+    os.environ.setdefault("TZ", "UTC")
+    os.environ.setdefault("WEATHER_PROVIDER", "open-meteo")
+    os.environ.setdefault("LOG_LEVEL", "INFO")
+    
+    # Start persistent MCP server if in Docker environment
+    if os.getenv("DEPLOYMENT_ENV") == "docker":
+        logger.info("Starting persistent MCP server for Docker environment")
+        if not start_persistent_mcp_server():
+            logger.error("Failed to start persistent MCP server")
+            raise RuntimeError("Failed to start persistent MCP server")
+        logger.info("Persistent MCP server started successfully")
+    else:
+        logger.info("Local environment detected, will use subprocess mode for MCP")
+    
+    # Log configuration
+    logger.info(f"Configuration: TZ={os.getenv('TZ')}, WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}")
+    if os.getenv("WEATHER_API_KEY"):
+        logger.info("WEATHER_API_KEY is configured")
+    else:
+        logger.info("WEATHER_API_KEY is not set (optional)")
+    
+    logger.info("WeatherSense API startup complete")
+    
+    yield
+    
+    # Shutdown
+    logger.info("WeatherSense API shutting down")
+    
+    # Stop persistent MCP server if running
+    if os.getenv("DEPLOYMENT_ENV") == "docker":
+        logger.info("Stopping persistent MCP server")
+        stop_persistent_mcp_server()
+        logger.info("Persistent MCP server stopped")
+    
+    logger.info("WeatherSense API shutdown complete")
+
+
 # Create FastAPI app
 app = FastAPI(
     title="WeatherSense API",
     description="Weather analysis with MCP tools and CrewAI",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -182,60 +237,6 @@ async def http_exception_handler(request, exc: HTTPException):
 
 # Additional error handlers for specific status codes - removed to avoid conflicts
 # The HTTPException handler above handles all HTTP errors properly
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Application startup event."""
-    logger.info("WeatherSense API starting up")
-    
-    # Validate required environment variables
-    required_env_vars = ["API_KEY"]
-    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-    
-    if missing_vars:
-        logger.error(f"Missing required environment variables: {missing_vars}")
-        raise RuntimeError(f"Missing required environment variables: {missing_vars}")
-    
-    # Set default values for optional environment variables
-    os.environ.setdefault("TZ", "UTC")
-    os.environ.setdefault("WEATHER_PROVIDER", "open-meteo")
-    os.environ.setdefault("LOG_LEVEL", "INFO")
-    
-    # Start persistent MCP server if in Docker environment
-    if os.getenv("DEPLOYMENT_ENV") == "docker":
-        logger.info("Starting persistent MCP server for Docker environment")
-        if not start_persistent_mcp_server():
-            logger.error("Failed to start persistent MCP server")
-            raise RuntimeError("Failed to start persistent MCP server")
-        logger.info("Persistent MCP server started successfully")
-    else:
-        logger.info("Local environment detected, will use subprocess mode for MCP")
-    
-    # Log configuration
-    logger.info(f"Configuration: TZ={os.getenv('TZ')}, WEATHER_PROVIDER={os.getenv('WEATHER_PROVIDER')}")
-    if os.getenv("WEATHER_API_KEY"):
-        logger.info("WEATHER_API_KEY is configured")
-    else:
-        logger.info("WEATHER_API_KEY is not set (optional)")
-    
-    logger.info("WeatherSense API startup complete")
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown event."""
-    logger.info("WeatherSense API shutting down")
-    
-    # Stop persistent MCP server if running
-    if os.getenv("DEPLOYMENT_ENV") == "docker":
-        logger.info("Stopping persistent MCP server")
-        stop_persistent_mcp_server()
-        logger.info("Persistent MCP server stopped")
-    
-    logger.info("WeatherSense API shutdown complete")
 
 
 if __name__ == "__main__":

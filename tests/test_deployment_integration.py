@@ -31,7 +31,9 @@ class DeploymentIntegrationTest:
     Base class for deployment integration tests that interact with real systems.
     """
     
-    def __init__(self):
+    @pytest.fixture(autouse=True)
+    def setup_integration_test(self):
+        """Setup integration test environment."""
         self.workspace_root = Path(__file__).parent.parent
         self.docker_client = None
         self.test_image_tag = "weather-sense:integration-test"
@@ -46,6 +48,11 @@ class DeploymentIntegrationTest:
             logger.warning(f"Docker not available: {e}")
             self.docker_client = None
         
+        yield
+        
+        # Cleanup
+        self.cleanup_test_environment()
+        
     def setup_test_environment(self):
         """Setup test environment with required variables."""
         os.environ.update({
@@ -54,6 +61,69 @@ class DeploymentIntegrationTest:
             "TZ": "UTC",
             "DEPLOYMENT_ENV": "docker"
         })
+    
+    def cleanup_test_environment(self):
+        """Clean up test environment."""
+        self.cleanup_docker_resources()
+    
+    def start_test_container(self):
+        """Start test container with both services and verify they're running."""
+        if self.docker_client is None:
+            pytest.skip("Docker not available")
+            
+        self.setup_test_environment()
+        
+        # Build image first if needed
+        try:
+            self.docker_client.images.get(self.test_image_tag)
+            logger.info(f"Using existing image: {self.test_image_tag}")
+        except docker.errors.ImageNotFound:
+            logger.info(f"Building Docker image: {self.test_image_tag}")
+            self.docker_client.images.build(
+                path=str(self.workspace_root),
+                tag=self.test_image_tag,
+                rm=True
+            )
+        
+        logger.info("Starting container to test service startup...")
+        
+        try:
+            # Start container with test environment
+            self.test_container = self.docker_client.containers.run(
+                self.test_image_tag,
+                environment={
+                    "API_KEY": self.test_api_key,
+                    "LOG_LEVEL": "INFO", 
+                    "TZ": "UTC",
+                    "DEPLOYMENT_ENV": "docker",
+                    "PORT": "8000"
+                },
+                ports={"8000/tcp": 8000},
+                detach=True,
+                remove=False
+            )
+            
+            # Wait for services to start
+            time.sleep(10)
+            
+            # Check container is running
+            self.test_container.reload()
+            assert self.test_container.status == "running"
+            
+            # Get container logs to verify both services started
+            logs = self.test_container.logs().decode('utf-8')
+            
+            # Verify API server started
+            assert "API server started with PID" in logs, f"API server not started. Logs: {logs}"
+            assert "All services started successfully" in logs, f"Not all services started. Logs: {logs}"
+            
+            logger.info("✅ Container started with both services running")
+            
+        except Exception as e:
+            if self.test_container:
+                logs = self.test_container.logs().decode('utf-8')
+                logger.error(f"Container logs: {logs}")
+            pytest.fail(f"Container startup test failed: {e}")
         
     def cleanup_docker_resources(self):
         """Clean up Docker containers and images created during testing."""
@@ -106,57 +176,11 @@ class TestSingleDockerImage(DeploymentIntegrationTest):
             
     def test_container_starts_both_services(self):
         """Verify container starts and both API + MCP services are operational."""
-        if self.docker_client is None:
-            pytest.skip("Docker not available")
-            
-        self.setup_test_environment()
-        
-        # Build image first
-        self.test_docker_image_builds_successfully()
-        
-        logger.info("Starting container to test service startup...")
-        
-        try:
-            # Start container with test environment
-            self.test_container = self.docker_client.containers.run(
-                self.test_image_tag,
-                environment={
-                    "API_KEY": self.test_api_key,
-                    "LOG_LEVEL": "INFO", 
-                    "TZ": "UTC",
-                    "DEPLOYMENT_ENV": "docker",
-                    "PORT": "8000"
-                },
-                ports={"8000/tcp": 8000},
-                detach=True,
-                remove=False
-            )
-            
-            # Wait for services to start
-            time.sleep(10)
-            
-            # Check container is running
-            self.test_container.reload()
-            assert self.test_container.status == "running"
-            
-            # Get container logs to verify both services started
-            logs = self.test_container.logs().decode('utf-8')
-            
-            # Verify API server started
-            assert "API server started with PID" in logs, f"API server not started. Logs: {logs}"
-            assert "All services started successfully" in logs, f"Not all services started. Logs: {logs}"
-            
-            logger.info("✅ Container started with both services running")
-            
-        except Exception as e:
-            if self.test_container:
-                logs = self.test_container.logs().decode('utf-8')
-                logger.error(f"Container logs: {logs}")
-            pytest.fail(f"Container startup test failed: {e}")
+        self.start_test_container()
             
     def test_api_endpoints_accessible(self):
         """Test that API endpoints are accessible and working."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         # Wait additional time for API to be ready
         time.sleep(5)
@@ -219,11 +243,11 @@ class TestCloudRunDeployment(DeploymentIntegrationTest):
         
         readme_content = readme_path.read_text()
         
-        # Check for gcloud run deploy command
-        gcloud_pattern = r'gcloud run deploy.*?--allow-unauthenticated'
+        # Check for gcloud run deploy command - find the complete command with multiple lines
+        gcloud_pattern = r'gcloud run deploy.*?(?=```|\n\n|\Z)'
         match = re.search(gcloud_pattern, readme_content, re.DOTALL)
         
-        assert match is not None, "gcloud run deploy command with --allow-unauthenticated not found in README"
+        assert match is not None, "gcloud run deploy command not found in README"
         
         deploy_command = match.group(0)
         
@@ -294,7 +318,7 @@ class TestAuthenticationBehavior(DeploymentIntegrationTest):
     
     def test_health_endpoint_no_auth_required(self):
         """Verify health endpoint works without authentication."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         # Test health endpoint without any headers
         try:
@@ -309,7 +333,7 @@ class TestAuthenticationBehavior(DeploymentIntegrationTest):
             
     def test_weather_endpoint_requires_api_key(self):
         """Verify weather endpoint requires x-api-key header."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         weather_query = {"query": "weather in Tel Aviv"}
         
@@ -331,7 +355,7 @@ class TestAuthenticationBehavior(DeploymentIntegrationTest):
             
     def test_weather_endpoint_accepts_valid_api_key(self):
         """Verify weather endpoint accepts requests with valid x-api-key."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         weather_query = {"query": "weather in Tel Aviv"}
         headers = {
@@ -364,7 +388,7 @@ class TestProcessManagement(DeploymentIntegrationTest):
     
     def test_docker_entrypoint_starts_api_server(self):
         """Verify docker_entrypoint.py starts API server correctly."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         # Get container logs and check for process management messages
         logs = self.test_container.logs().decode('utf-8')
@@ -419,7 +443,7 @@ class TestProcessManagement(DeploymentIntegrationTest):
             
     def test_container_logs_show_both_services(self):
         """Verify container logs include entries for both API and MCP services."""
-        self.test_container_starts_both_services()
+        self.start_test_container()
         
         # Wait for services to generate logs
         time.sleep(5)
@@ -459,8 +483,8 @@ class TestDocumentationValidation(DeploymentIntegrationTest):
         # Check for deployment steps
         deployment_sections = [
             "Prerequisites",
-            "Deployment Steps", 
-            "Build and push Docker image",
+            "Quick Deployment", 
+            "Build and push",  # This is the actual heading in README
             "Deploy to Cloud Run"
         ]
         

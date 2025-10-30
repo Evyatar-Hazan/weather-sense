@@ -309,7 +309,7 @@ class TestWeatherAskErrors:
         response = client.post(
             "/v1/weather/ask",
             headers=valid_headers,
-            data="invalid json"
+            content="invalid json"
         )
         
         assert response.status_code == 422
