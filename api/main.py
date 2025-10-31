@@ -317,6 +317,17 @@ async def health_check():
     return HealthResponse(ok=True)
 
 
+# Register /healthz only in local/debug environment
+if (
+    os.getenv("ENV", "local") == "local"
+    or os.getenv("DEBUG", "false").lower() == "true"
+):
+
+    @app.get("/healthz", response_model=HealthResponse)
+    async def healthz_check():
+        return await health_check()
+
+
 @app.get("/metrics")
 async def metrics_endpoint():
     """Prometheus metrics endpoint."""
