@@ -314,6 +314,49 @@ HTTPS_ONLY=true
 HTTPS_ONLY=false
 ```
 
+## 📊 Monitoring & Metrics
+
+### Prometheus Metrics
+
+WeatherSense provides comprehensive Prometheus metrics for monitoring and observability:
+
+**Metrics Endpoint**: `/metrics`
+- No authentication required
+- Standard Prometheus format
+- Real-time metrics collection
+
+**Available Metrics**:
+
+| Metric | Type | Description | Labels |
+|--------|------|-------------|---------|
+| `weathersense_app_info_info` | Info | Application information | `version`, `environment`, `application` |
+| `weathersense_requests_total` | Counter | Total HTTP requests | `method`, `endpoint`, `status_code` |
+| `weathersense_request_duration_seconds` | Histogram | HTTP request duration | `method`, `endpoint` |
+| `weathersense_weather_queries_total` | Counter | Weather queries processed | `status`, `location_type` |
+| `weathersense_weather_query_duration_seconds` | Histogram | Weather query duration | `status` |
+| `weathersense_health_checks_total` | Counter | Health check requests | `status` |
+| `weathersense_mcp_tool_calls_total` | Counter | MCP tool calls | `tool_name`, `status` |
+| `weathersense_mcp_tool_duration_seconds` | Histogram | MCP tool duration | `tool_name` |
+| `weathersense_errors_total` | Counter | Application errors | `error_type`, `component` |
+
+**Example Metrics Usage**:
+```bash
+# Check application metrics
+curl http://localhost:8000/metrics
+
+# Example queries for monitoring:
+# - Request rate: rate(weathersense_requests_total[5m])
+# - Error rate: rate(weathersense_weather_queries_total{status="error"}[5m])
+# - Response time P95: histogram_quantile(0.95, weathersense_request_duration_seconds_bucket)
+# - Query success rate: weathersense_weather_queries_total{status="success"} / on() weathersense_weather_queries_total
+```
+
+**Cloud Run Integration**:
+- Metrics automatically collected in Google Cloud environments
+- Compatible with Google Cloud Monitoring
+- Can be scraped by external Prometheus instances
+- No additional configuration required
+
 ## 🧪 Testing
 
 ### Test Suite Overview

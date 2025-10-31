@@ -18,6 +18,16 @@ from pydantic import BaseModel, Field, field_validator
 
 from crew.flow import process_weather_query
 from crew.mcp_client import start_persistent_mcp_server, stop_persistent_mcp_server
+from utils.metrics import (
+    get_content_type,
+    get_metrics,
+    health_check_counter,
+    request_counter,
+    request_duration,
+    set_app_info,
+    weather_query_counter,
+    weather_query_duration,
+)
 
 from .logging_config import log_request, setup_logging
 from .security import verify_api_key_header
@@ -104,6 +114,11 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("WEATHER_API_KEY is not set (optional)")
 
+    # Set up Prometheus metrics
+    environment = os.getenv("DEPLOYMENT_ENV", "local")
+    set_app_info(version="1.0.0", environment=environment)
+    logger.info("Prometheus metrics initialized")
+
     logger.info("WeatherSense API startup complete")
 
     yield
@@ -176,6 +191,43 @@ async def https_enforcement_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    return response
+
+
+# Metrics collection middleware
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """
+    Collect Prometheus metrics for HTTP requests.
+    """
+    # Skip metrics collection for the metrics endpoint itself
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    start_time = time.time()
+    method = request.method
+    path = request.url.path
+
+    # Process request
+    response = await call_next(request)
+
+    # Calculate duration
+    duration = time.time() - start_time
+
+    # Normalize endpoint for metrics (remove dynamic parts)
+    endpoint = path
+    if path.startswith("/v1/weather/ask"):
+        endpoint = "/v1/weather/ask"
+    elif path in ["/health", "/healthz"]:
+        endpoint = "/health"
+
+    # Record metrics
+    request_counter.labels(
+        method=method, endpoint=endpoint, status_code=response.status_code
+    ).inc()
+
+    request_duration.labels(method=method, endpoint=endpoint).observe(duration)
 
     return response
 
@@ -261,7 +313,17 @@ class ErrorResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
+    health_check_counter.labels(status="ok").inc()
     return HealthResponse(ok=True)
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Prometheus metrics endpoint."""
+    from fastapi.responses import Response
+
+    metrics_data = get_metrics()
+    return Response(content=metrics_data, media_type=get_content_type())
 
 
 @app.post("/v1/weather/ask", response_model=WeatherQueryResponse)
@@ -300,11 +362,16 @@ async def weather_ask(
 
         # Calculate total duration
         duration_ms = int((time.time() - start_time) * 1000)
+        duration_seconds = duration_ms / 1000.0
 
         # Handle errors from the flow
         if "error" in result:
             error_code = result.get("error", "unknown_error")
             hint = result.get("hint", "An error occurred")
+
+            # Record failed weather query metrics
+            weather_query_counter.labels(status="error", location_type="unknown").inc()
+            weather_query_duration.labels(status="error").observe(duration_seconds)
 
             # Map errors to HTTP status codes
             if error_code in [
@@ -344,6 +411,28 @@ async def weather_ask(
         result["latency_ms"] = duration_ms
         result["request_id"] = request_id
 
+        # Determine location type for metrics
+        location_type = "unknown"
+        if "params" in result and "location" in result["params"]:
+            location = result["params"]["location"]
+            if (
+                "," in location
+                and location.replace(".", "")
+                .replace("-", "")
+                .replace(",", "")
+                .replace(" ", "")
+                .isdigit()
+            ):
+                location_type = "coordinates"
+            else:
+                location_type = "city_name"
+
+        # Record successful weather query metrics
+        weather_query_counter.labels(
+            status="success", location_type=location_type
+        ).inc()
+        weather_query_duration.labels(status="success").observe(duration_seconds)
+
         # Log successful request
         log_request(
             logger,
@@ -362,6 +451,11 @@ async def weather_ask(
 
     except Exception as e:
         duration_ms = int((time.time() - start_time) * 1000)
+        duration_seconds = duration_ms / 1000.0
+
+        # Record exception metrics
+        weather_query_counter.labels(status="exception", location_type="unknown").inc()
+        weather_query_duration.labels(status="exception").observe(duration_seconds)
 
         # Log unexpected error
         log_request(

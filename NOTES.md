@@ -103,6 +103,44 @@ Client → Cloudflare Worker → Google Cloud Run → CrewAI Flow → MCP Tool �
 
 This section documents the latest improvements made to the WeatherSense system, focusing on security, stability, and maintainability enhancements.
 
+### Prometheus Metrics & Monitoring Framework
+
+**Implementation Date**: October 2025
+**Components Added**: `utils/metrics.py`, enhanced `api/main.py`, `tests/test_prometheus_metrics.py`
+
+#### Comprehensive Metrics Collection
+
+**1. HTTP Request Metrics**
+```python
+# Request Tracking
+- Total requests by method, endpoint, and status code
+- Request duration histograms with configurable buckets
+- Real-time performance monitoring
+
+# Weather Query Metrics
+- Query success/failure rates by location type
+- Processing duration tracking
+- Error categorization and counting
+
+# System Health Metrics
+- Health check endpoint monitoring
+- Application information exposure
+- Environment and version tracking
+```
+
+**2. Prometheus Integration**
+- **Endpoint**: `/metrics` (no authentication required)
+- **Format**: Standard Prometheus exposition format
+- **Collection**: Automatic middleware-based collection
+- **Cloud Run Compatible**: Works seamlessly with Google Cloud monitoring
+
+**3. Metrics Categories**
+- **Application Info**: Version, environment, deployment details
+- **Request Performance**: Latency histograms, throughput counters
+- **Business Logic**: Weather query success rates, location type distribution
+- **Error Tracking**: Categorized error counters by component and type
+- **MCP Tools**: Tool call performance and success rates
+
 ### Security Validation Framework
 
 **Implementation Date**: October 2025
