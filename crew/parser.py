@@ -29,7 +29,32 @@ class DateRangeParser:
         Parse natural language query to extract location, dates, and units.
         """
         try:
+            # Input validation and sanitization
+            if not query or not isinstance(query, str):
+                return {
+                    "error": "invalid_query",
+                    "hint": "Query must be a non-empty string",
+                }
+
+            # Remove null bytes and control characters (except common whitespace)
+            query = "".join(
+                char for char in query if ord(char) >= 32 or char in "\t\n\r"
+            )
+
             query_lower = query.lower().strip()
+
+            # Check for minimum and maximum length
+            if len(query_lower) < 3:
+                return {
+                    "error": "query_too_short",
+                    "hint": "Query must be at least 3 characters long",
+                }
+
+            if len(query_lower) > 500:
+                return {
+                    "error": "query_too_long",
+                    "hint": "Query must be less than 500 characters",
+                }
 
             # Extract units
             units = self._extract_units(query_lower)
@@ -94,7 +119,17 @@ class DateRangeParser:
         return "metric"
 
     def _extract_location(self, query: str) -> Optional[str]:
-        """Extract location from query."""
+        """Extract location from query with security validation."""
+        if not query or len(query.strip()) < 2:
+            return None
+
+        # Remove potentially dangerous characters but preserve valid location chars
+        safe_query = re.sub(r'[<>"\'\\\x00-\x1f\x7f]', "", query)
+
+        # Limit location extraction to reasonable size
+        if len(safe_query) > 200:
+            safe_query = safe_query[:200]
+
         # Look for common location patterns - more specific patterns first
         location_patterns = [
             # Pattern: "in/for <location> for/from/during/this/next/last"
@@ -116,19 +151,39 @@ class DateRangeParser:
             r"\b(?:in|for)\s+([A-Za-z\s,.-]+?)\s*$",
         ]
 
-        # Check for coordinate pattern first
+        # Check for coordinate pattern first with validation
         coord_pattern = r"(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)"
-        coord_match = re.search(coord_pattern, query)
+        coord_match = re.search(coord_pattern, safe_query)
         if coord_match:
-            return f"{coord_match.group(1)},{coord_match.group(2)}"
+            try:
+                lat = float(coord_match.group(1))
+                lon = float(coord_match.group(2))
+
+                # Validate coordinate ranges
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    return f"{lat},{lon}"
+                else:
+                    # Invalid coordinates, continue with name search
+                    pass
+            except ValueError:
+                # Invalid coordinate format, continue with name search
+                pass
 
         for pattern in location_patterns:
-            match = re.search(pattern, query, re.IGNORECASE)
+            match = re.search(pattern, safe_query, re.IGNORECASE)
             if match:
                 location = match.group(1).strip()
-                # Clean up the location
+
+                # Additional sanitization for location names
                 location = re.sub(r"\s+", " ", location)
                 location = location.strip(" ,.-")
+
+                # Remove any remaining dangerous characters
+                location = re.sub(r'[<>"\'\\\x00-\x1f\x7f]', "", location)
+
+                # Validate location length
+                if len(location) > 100:
+                    location = location[:100]
 
                 # Filter out time-related words that are not locations
                 time_words = [

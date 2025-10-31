@@ -3,16 +3,18 @@ FastAPI main application with weather analysis endpoints.
 """
 import logging
 import os
+import re
 import time
 import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from html import escape
 from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from crew.flow import process_weather_query
 from crew.mcp_client import start_persistent_mcp_server, stop_persistent_mcp_server
@@ -180,7 +182,61 @@ async def https_enforcement_middleware(request: Request, call_next):
 
 # Pydantic models
 class WeatherQueryRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=1000)
+
+    @field_validator("query")
+    @classmethod
+    def sanitize_query(cls, v):
+        """Sanitize input query to prevent XSS and injection attacks."""
+        if not v or not v.strip():
+            raise ValueError("Query cannot be empty")
+
+        sanitized = v.strip()
+
+        # Remove null bytes and control characters (except common whitespace)
+        sanitized = "".join(
+            char for char in sanitized if ord(char) >= 32 or char in "\t\n\r"
+        )
+
+        # HTML escape first to prevent XSS
+        sanitized = escape(sanitized)
+
+        # Then remove potentially dangerous patterns (they might be HTML escaped now)
+        dangerous_patterns = [
+            r"&lt;script[^&]*&gt;.*?&lt;/script&gt;",  # HTML escaped script tags
+            r"<script[^>]*>.*?</script>",  # Direct script tags
+            r"javascript:",  # JavaScript URLs
+            r"on\w+\s*=",  # Event handlers
+            r"&lt;iframe[^&]*&gt;.*?&lt;/iframe&gt;",  # HTML escaped iframe tags
+            r"<iframe[^>]*>.*?</iframe>",  # Direct iframe tags
+            r"&lt;object[^&]*&gt;.*?&lt;/object&gt;",  # HTML escaped object tags
+            r"<object[^>]*>.*?</object>",  # Direct object tags
+            r"&lt;embed[^&]*&gt;.*?&lt;/embed&gt;",  # HTML escaped embed tags
+            r"<embed[^>]*>.*?</embed>",  # Direct embed tags
+            r"expression\s*\(",  # CSS expression
+            r"vbscript:",  # VBScript URLs
+        ]
+
+        for pattern in dangerous_patterns:
+            sanitized = re.sub(pattern, "", sanitized, flags=re.IGNORECASE | re.DOTALL)
+
+        # Check for potential coordinate patterns and validate them
+        coord_pattern = r"(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)"
+        matches = re.findall(coord_pattern, sanitized)
+        for lat_str, lon_str in matches:
+            try:
+                lat, lon = float(lat_str), float(lon_str)
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    raise ValueError(
+                        "Invalid coordinates: latitude must be -90 to 90, "
+                        "longitude must be -180 to 180"
+                    )
+            except ValueError as e:
+                if "Invalid coordinates" in str(e):
+                    raise e
+                # If conversion fails, it's probably not coordinates, continue
+
+        return sanitized
 
 
 class HealthResponse(BaseModel):
@@ -239,14 +295,7 @@ async def weather_ask(
     )
 
     try:
-        # Validate input
-        if not request.query or not request.query.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Query parameter is required and cannot be empty",
-            )
-
-        # Process the query through CrewAI flow
+        # Process the query through CrewAI flow (input already validated by Pydantic)
         result = process_weather_query(request.query.strip())
 
         # Calculate total duration

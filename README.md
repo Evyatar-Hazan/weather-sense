@@ -296,6 +296,15 @@ All responses include essential security headers:
 - `X-XSS-Protection`: Enables browser XSS filtering
 - `Referrer-Policy`: Controls referrer information leakage
 
+**Input Sanitization & Validation**:
+- Query length limits (1-1000 characters with Pydantic validation)
+- XSS prevention with HTML entity escaping
+- JavaScript pattern removal (`javascript:`, `onload=`, etc.)
+- Control character filtering (null bytes, non-printable chars)
+- Coordinate validation (latitude: -90 to 90, longitude: -180 to 180)
+- Location name sanitization (dangerous characters removed)
+- Unicode support for international location names
+
 **Example Production Security Configuration**:
 ```bash
 # Enable HTTPS enforcement (default in production)

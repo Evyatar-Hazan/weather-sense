@@ -1,9 +1,8 @@
 """
 End-to-end tests for FastAPI weather application.
 """
-import json
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +11,8 @@ from fastapi.testclient import TestClient
 os.environ["API_KEY"] = "test-api-key-123"
 os.environ["LOG_LEVEL"] = "ERROR"  # Reduce log noise in tests
 
-from api.main import app
+# Import after environment setup
+from api.main import app  # noqa: E402
 
 
 class TestWeatherAPI:
@@ -60,7 +60,7 @@ class TestWeatherAPI:
             "/v1/weather/ask", headers=self.valid_headers, json={"query": ""}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422  # Pydantic validation error
 
     @patch("api.main.process_weather_query")
     def test_weather_ask_success(self, mock_process_query):
@@ -225,7 +225,7 @@ class TestWeatherAPI:
             "/v1/weather/ask", headers=self.valid_headers, json={"query": "   "}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422  # Pydantic validation error
 
     @patch("api.main.process_weather_query")
     def test_weather_ask_response_timing(self, mock_process_query):

@@ -1544,6 +1544,16 @@ def mock_open_meteo_responses():
   - `X-XSS-Protection`: Cross-site scripting protection
   - `Referrer-Policy`: Controls referrer information leakage
 
+**Input Validation & Sanitization**:
+- **Pydantic Model Validation**: Query length limits (1-1000 characters)
+- **XSS Prevention**: HTML entity escaping and JavaScript pattern removal
+- **Control Character Filtering**: Null bytes and non-printable characters removed
+- **Location Security**: Dangerous characters filtered from location names
+- **Coordinate Validation**: Latitude (-90 to 90) and longitude (-180 to 180) bounds
+- **Unicode Support**: International location names properly handled
+- **Injection Protection**: SQL/NoSQL injection patterns filtered
+- **Length Limits**: Query (1000 chars), location names (100 chars), parser input (500 chars)
+
 **API Authentication**:
 - API key via `x-api-key` header
 - Environment variable configuration

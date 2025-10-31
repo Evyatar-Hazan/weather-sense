@@ -5,11 +5,9 @@ This module provides comprehensive HTTP integration testing for the FastAPI
 weather service, including authentication, error handling, performance, and
 deterministic behavior validation.
 """
-import json
 import os
 import time
 import uuid
-from typing import Any, Dict
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,7 +18,8 @@ os.environ["TZ"] = "Asia/Jerusalem"
 os.environ["LOG_LEVEL"] = "DEBUG"
 os.environ["WEATHER_PROVIDER"] = "open-meteo"
 
-from api.main import app
+# Import after environment setup
+from api.main import app  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -105,12 +104,12 @@ class TestWeatherAskAuth:
     def test_valid_api_key_returns_200_or_processing_error(
         self, client, valid_headers, sample_query
     ):
-        """Test that valid x-api-key allows request processing (status 200 or valid error)."""
+        """Test that valid x-api-key allows request processing."""
         response = client.post(
             "/v1/weather/ask", headers=valid_headers, json={"query": sample_query}
         )
 
-        # Should not be 401 - either success (200) or valid processing error (400, 429, 502)
+        # Should not be 401 - either success or valid processing error
         assert response.status_code != 401
         assert response.status_code in [200, 400, 429, 502]
 
@@ -246,24 +245,24 @@ class TestWeatherAskErrors:
     """Test suite for error handling scenarios."""
 
     def test_empty_query_returns_400(self, client, valid_headers):
-        """Test that empty query returns 400."""
+        """Test that empty query returns 422 (Pydantic validation error)."""
         response = client.post(
             "/v1/weather/ask", headers=valid_headers, json={"query": ""}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422  # Pydantic validation error
         data = response.json()
-        assert "error" in data or "detail" in data
+        assert "detail" in data
 
     def test_whitespace_only_query_returns_400(self, client, valid_headers):
-        """Test that whitespace-only query returns 400."""
+        """Test that whitespace-only query returns 422 (Pydantic validation error)."""
         response = client.post(
             "/v1/weather/ask", headers=valid_headers, json={"query": "   \n\t  "}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422  # Pydantic validation error
         data = response.json()
-        assert "error" in data or "detail" in data
+        assert "detail" in data
 
     def test_invalid_date_range_returns_400(self, client, valid_headers):
         """Test that invalid date range (over 31 days) returns 400."""
@@ -290,7 +289,7 @@ class TestWeatherAskErrors:
             "/v1/weather/ask", headers=valid_headers, json={"query": query}
         )
 
-        # Should return 400 for unknown location, or skip if external service unavailable
+        # Should return 400 for unknown location, or skip if service unavailable
         if response.status_code not in [200, 400, 429, 502]:
             pytest.fail(f"Unexpected status code: {response.status_code}")
 
@@ -342,7 +341,10 @@ class TestWeatherAskPerformance:
         assert (
             abs(reported_latency_ms - measured_duration_ms) / measured_duration_ms
             <= tolerance
-        ), f"Latency mismatch: reported {reported_latency_ms}ms, measured {measured_duration_ms:.0f}ms"
+        ), (
+            f"Latency mismatch: reported {reported_latency_ms}ms, "
+            f"measured {measured_duration_ms:.0f}ms"
+        )
 
     def test_latency_is_positive(self, client, valid_headers):
         """Test that latency_ms is always positive."""
@@ -377,7 +379,7 @@ class TestWeatherAskPerformance:
         data = response.json()
         request_id = data["request_id"]
 
-        # Check that request_id appears in logs - check both message and record attributes
+        # Check logs - both message and record attributes
         found_request_id = False
         for record in caplog.records:
             # Check message content
@@ -389,9 +391,10 @@ class TestWeatherAskPerformance:
                 found_request_id = True
                 break
 
-        assert (
-            found_request_id
-        ), f"request_id {request_id} not found in logs. Available records: {[r.message for r in caplog.records]}"
+        assert found_request_id, (
+            f"request_id {request_id} not found in logs. "
+            f"Available records: {[r.message for r in caplog.records]}"
+        )
 
 
 class TestWeatherAskDeterminism:
