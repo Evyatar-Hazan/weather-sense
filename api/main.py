@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from crew.flow import process_weather_query
@@ -137,6 +137,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# HTTPS enforcement middleware
+@app.middleware("http")
+async def https_enforcement_middleware(request: Request, call_next):
+    """
+    Enforce HTTPS for production environments and add security headers.
+    Can be disabled by setting HTTPS_ONLY=false for local development.
+    """
+    https_only = os.getenv("HTTPS_ONLY", "true").lower() == "true"
+
+    # Skip HTTPS enforcement for health checks, local development, and test environments
+    if (
+        not https_only
+        or request.url.path in ["/health", "/healthz"]
+        or request.headers.get("host", "").startswith("localhost")
+        or request.headers.get("host", "").startswith("127.0.0.1")
+        or request.headers.get("host", "").startswith("testserver")  # For testing
+    ):
+        response = await call_next(request)
+    else:
+        # Enforce HTTPS in production
+        if request.url.scheme != "https":
+            # Redirect HTTP to HTTPS
+            https_url = request.url.replace(scheme="https")
+            return RedirectResponse(url=str(https_url), status_code=301)
+
+        response = await call_next(request)
+
+    # Add security headers
+    response.headers[
+        "Strict-Transport-Security"
+    ] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    return response
 
 
 # Pydantic models

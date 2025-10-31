@@ -1533,6 +1533,17 @@ def mock_open_meteo_responses():
 
 ### 🔐 Security Considerations
 
+**HTTPS Enforcement**:
+- Automatic HTTP to HTTPS redirects in production environments
+- Configurable via `HTTPS_ONLY` environment variable (default: `true`)
+- Exemptions for health checks, localhost, and test environments
+- Comprehensive security headers added to all responses:
+  - `Strict-Transport-Security`: HSTS for browser security
+  - `X-Content-Type-Options`: Prevents MIME sniffing attacks
+  - `X-Frame-Options`: Clickjacking protection
+  - `X-XSS-Protection`: Cross-site scripting protection
+  - `Referrer-Policy`: Controls referrer information leakage
+
 **API Authentication**:
 - API key via `x-api-key` header
 - Environment variable configuration
@@ -1562,6 +1573,7 @@ LOG_LEVEL="INFO"
 PORT="8000"
 TZ="UTC"
 WEATHER_PROVIDER="open-meteo"
+HTTPS_ONLY="true"  # Set to "false" for local development
 ```
 
 **Resource Requirements**:

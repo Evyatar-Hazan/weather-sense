@@ -212,6 +212,7 @@ The natural language parser has been refactored from a monolithic 455-line class
 | `WEATHER_PROVIDER` | ❌ No | `open-meteo` | Weather data provider |
 | `WEATHER_API_KEY` | ❌ No | - | Optional API key for weather provider |
 | `DEPLOYMENT_ENV` | ❌ No | - | Set to `docker` for container mode |
+| `HTTPS_ONLY` | ❌ No | `true` | Enforce HTTPS redirects (set to `false` for local dev) |
 
 ### Rate Limiting and Resilience
 
@@ -276,6 +277,32 @@ export API_KEY="my-local-test-key"
 # Or create a .env file
 echo 'API_KEY="local-dev-key-123"' > .env
 echo 'LOG_LEVEL="DEBUG"' >> .env
+```
+
+### Security Features
+
+WeatherSense includes comprehensive security measures for production deployment:
+
+**HTTPS Enforcement**:
+- Automatic HTTP to HTTPS redirects in production (`HTTPS_ONLY=true`)
+- Can be disabled for local development (`HTTPS_ONLY=false`)
+- Health checks and localhost requests exempted from redirects
+
+**Security Headers**:
+All responses include essential security headers:
+- `Strict-Transport-Security`: Enforces HTTPS for browsers
+- `X-Content-Type-Options`: Prevents MIME sniffing attacks
+- `X-Frame-Options`: Protects against clickjacking
+- `X-XSS-Protection`: Enables browser XSS filtering
+- `Referrer-Policy`: Controls referrer information leakage
+
+**Example Production Security Configuration**:
+```bash
+# Enable HTTPS enforcement (default in production)
+HTTPS_ONLY=true
+
+# For local development (disable HTTPS enforcement)
+HTTPS_ONLY=false
 ```
 
 ## 🧪 Testing
