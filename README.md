@@ -86,36 +86,73 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
 
 ### Quick Test
 
-#### Health Check
+#### Health Check ✅
 ```bash
-# Health check endpoint (works both locally and in production):
-curl http://localhost:8000/health
-# or for production direct server:
-curl https://weather-sense-service-1061398738.us-central1.run.app/health
-# or for production proxy (assignment-compliant):
-curl https://weather-sense-proxy.weather-sense.workers.dev/healthz
+# Set environment variables for easy testing
+export BASE_LOCAL="http://localhost:8000"
+export BASE_CLOUD="https://weather-sense-service-ektuy7j2kq-uc.a.run.app"
+export BASE_PROXY="https://weather-sense-proxy.weather-sense.workers.dev"
+export KEY_LOCAL="your-local-dev-key"
+export KEY_PROD="interview-demo-20251029-974213a2e493d09f"
+
+# Local development:
+curl -H "x-api-key: $KEY_LOCAL" $BASE_LOCAL/health
+
+# Cloud Run direct:
+curl -H "x-api-key: $KEY_PROD" $BASE_CLOUD/health
+
+# Proxy (recommended):
+curl -H "x-api-key: $KEY_PROD" $BASE_PROXY/healthz
 # Expected: {"ok": true}
 ```
 
-#### Weather Query
+#### Weather Query ✅
 ```bash
-# Local development
-curl -X POST "http://localhost:8000/v1/weather/ask" \
+# Natural language query with relative dates
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-local-dev-key" \
-  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"Summarize weather in Tel Aviv from last Monday to Friday, metric"}' | jq
 
-# Production via proxy (recommended)
-curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+# Explicit dates & imperial units
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-secret-api-key" \
-  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"NYC weather 2025-10-01 to 2025-10-07, imperial"}' | jq
 
-# Production direct server
-curl -X POST "https://weather-sense-service-1061398738.us-central1.run.app/v1/weather/ask" \
+# Local development example:
+curl -s -X POST $BASE_LOCAL/v1/weather/ask \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-secret-api-key" \
-  -d '{"query": "weather in Tel Aviv from last Monday to Friday, metric"}'
+  -H "x-api-key: $KEY_LOCAL" \
+  -d '{"query":"weather in Jerusalem today, metric"}' | jq
+
+# Cloud Run direct example:
+curl -s -X POST $BASE_CLOUD/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"weather in Haifa from October 28 to October 30, metric"}' | jq
+```
+
+#### Automated API Testing 🧪
+```bash
+# Install testing dependencies
+pip install -r test_requirements.txt
+
+# Set environment variables (for cloud/proxy testing)
+export BASE_CLOUD="https://weather-sense-service-ektuy7j2kq-uc.a.run.app"
+export BASE_PROXY="https://weather-sense-proxy.weather-sense.workers.dev"
+export KEY_PROD="interview-demo-20251029-974213a2e493d09f"
+
+# Run all tests across all environments
+python test_api_endpoints.py --env all --verbose
+
+# Test specific environment
+python test_api_endpoints.py --env proxy
+python test_api_endpoints.py --env cloud
+python test_api_endpoints.py --env local
+
+# Save results to JSON file
+python test_api_endpoints.py --save test_results.json
 ```
 
 #### Test MCP Tool Directly
@@ -554,15 +591,34 @@ gcloud run deploy $SERVICE_NAME \
 
 ### Live Demo
 
-🌍 **Production Instance**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app
-🔑 **Demo API Key (Valid until Nov 15, 2025)**: `interview-demo-20251029-974213a2e493d09f`
+🌍 **Production Instances**:
+- **Primary (Proxy)**: https://weather-sense-proxy.weather-sense.workers.dev
+- **Direct (Cloud Run)**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app
+
+🔑 **Production API Key**: `weather-sense-prod-key-2024`
+
+#### Service Status
+- ✅ **Proxy Server**: Fully operational with `/healthz` endpoint mapping
+- ✅ **Cloud Run Health**: Health checks working perfectly
+- ⚠️ **Cloud Run API**: Weather endpoints experiencing intermittent timeouts
+
+**Current Issues**:
+- Weather API requests may timeout during MCP server initialization
+- Health endpoints (`/health`, `/healthz`) work reliably
+- Investigation ongoing for MCP subprocess startup timing
 
 #### Try it Now
 ```bash
-# Quick test
+# Quick test via Proxy (Recommended)
+curl -X POST "https://weather-sense-proxy.weather-sense.workers.dev/v1/weather/ask" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: weather-sense-prod-key-2024" \
+  -d '{"query": "weather in Tel Aviv for today"}'
+
+# Direct Cloud Run service
 curl -X POST "https://weather-sense-service-ektuy7j2kq-uc.a.run.app/v1/weather/ask" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: interview-demo-20251029-974213a2e493d09f" \
+  -H "x-api-key: weather-sense-prod-key-2024" \
   -d '{"query": "weather in Tel Aviv for today"}'
 
 # Interactive docs

@@ -1720,8 +1720,8 @@ Both API server and MCP server use consistent structured JSON logging format:
 **Local Development**:
 ```bash
 # Set up virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies including development tools
 pip install -e ".[dev,test]"
@@ -1875,8 +1875,8 @@ jq 'select(.level == "ERROR") | .message' app.log | sort | uniq -c
 **Local Development:**
 ```bash
 # Set up virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies including development tools
 pip install -e ".[dev,test]"
@@ -1954,14 +1954,41 @@ curl http://localhost:8000/health
 
 **API Usage:**
 ```bash
-# Health check
-curl -H "Accept: application/json" http://localhost:8000/health
+# Set environment variables for easy testing
+export BASE_LOCAL="http://localhost:8000"
+export BASE_CLOUD="https://weather-sense-service-ektuy7j2kq-uc.a.run.app"
+export BASE_PROXY="https://weather-sense-proxy.weather-sense.workers.dev"
+export KEY_LOCAL="your-local-dev-key"
+export KEY_PROD="interview-demo-20251029-974213a2e493d09f"
 
-# Weather query
-curl -X POST http://localhost:8000/weather \
+# Health checks
+curl -H "x-api-key: $KEY_LOCAL" $BASE_LOCAL/health         # Local
+curl -H "x-api-key: $KEY_PROD" $BASE_CLOUD/health          # Cloud Run
+curl -H "x-api-key: $KEY_PROD" $BASE_PROXY/healthz         # Proxy
+
+# Natural language query with relative dates
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_SECRET_API_KEY_HERE" \
-  -d '{"query": "weather in Tel Aviv for the next 3 days"}'
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"Summarize weather in Tel Aviv from last Monday to Friday, metric"}' | jq
+
+# Explicit dates & imperial units
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"NYC weather 2025-10-01 to 2025-10-07, imperial"}' | jq
+
+# Local development example
+curl -s -X POST $BASE_LOCAL/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_LOCAL" \
+  -d '{"query":"weather in Jerusalem today, metric"}' | jq
+
+# Cloud Run direct example
+curl -s -X POST $BASE_CLOUD/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"weather in Haifa from October 28 to October 30, metric"}' | jq
 ```
 
 ### 🔧 Debugging Commands
@@ -2203,6 +2230,103 @@ This doesn't require Python's strengths (data analysis, ML, complex algorithms).
 - Business logic requiring extensive libraries
 
 For this proxy use case, JavaScript provides the perfect balance of simplicity, performance, and platform compatibility.
+
+---
+
+## 🔄 Current Deployment Status (October 31, 2025)
+
+### Production Endpoints
+
+**Primary Services:**
+- **Proxy Server**: https://weather-sense-proxy.weather-sense.workers.dev
+- **Cloud Run Service**: https://weather-sense-service-ektuy7j2kq-uc.a.run.app
+- **API Key**: `weather-sense-prod-key-2024`
+
+### Health Status
+
+| Service | Endpoint | Status | Notes |
+|---------|----------|--------|-------|
+| Proxy Health | `/healthz` | ✅ Operational | Maps to Cloud Run `/health` |
+| Cloud Run Health | `/health` | ✅ Operational | Direct health check working |
+| Weather API | `/v1/weather/ask` | ⚠️ Intermittent | Timeout issues during MCP startup |
+
+### Known Issues
+
+**MCP Server Startup Timing:**
+- The MCP subprocess occasionally times out during container cold starts
+- Health checks work reliably (no MCP dependency)
+- Weather requests require MCP server initialization which may exceed timeout
+
+**Mitigation Strategies Implemented:**
+1. **Proxy Layer**: Cloudflare Workers provide fast failover and consistent endpoint
+2. **Health Separation**: Health checks bypass MCP dependency for reliable monitoring
+3. **Container Warmup**: Regular health checks help maintain container warmth
+
+**Next Steps for Resolution:**
+1. Implement MCP connection pooling to reduce startup time
+2. Add retry logic with exponential backoff
+3. Consider pre-warming MCP server on container startup
+4. Monitor container memory and CPU allocation for optimization
+
+### Deployment Commands Used
+
+```bash
+# Cloud Run deployment (latest)
+gcloud run deploy weather-sense-service --source . --region=us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="API_KEY=weather-sense-prod-key-2024,TZ=UTC,LOG_LEVEL=INFO,DEPLOYMENT_ENV=docker"
+
+# Proxy deployment
+cd proxy && npx wrangler deploy
+```
+
+### Testing Commands
+
+```bash
+# Set environment variables for testing
+export BASE_LOCAL="http://localhost:8000"
+export BASE_CLOUD="https://weather-sense-service-ektuy7j2kq-uc.a.run.app"
+export BASE_PROXY="https://weather-sense-proxy.weather-sense.workers.dev"
+export KEY_LOCAL="your-local-dev-key"
+export KEY_PROD="interview-demo-20251029-974213a2e493d09f"
+
+# Health checks (all environments)
+curl -H "x-api-key: $KEY_LOCAL" $BASE_LOCAL/health         # Local dev
+curl -H "x-api-key: $KEY_PROD" $BASE_CLOUD/health          # Cloud Run direct
+curl -H "x-api-key: $KEY_PROD" $BASE_PROXY/healthz         # Proxy (recommended)
+
+# Weather API examples
+# Natural language query with relative dates
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"Summarize weather in Tel Aviv from last Monday to Friday, metric"}' | jq
+
+# Explicit dates & imperial units
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"NYC weather 2025-10-01 to 2025-10-07, imperial"}' | jq
+
+# All three environments comparison:
+# Local development
+curl -s -X POST $BASE_LOCAL/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_LOCAL" \
+  -d '{"query":"weather in Jerusalem today, metric"}' | jq
+
+# Cloud Run direct
+curl -s -X POST $BASE_CLOUD/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"weather in Haifa from October 28 to October 30, metric"}' | jq
+
+# Proxy (recommended for production)
+curl -s -X POST $BASE_PROXY/v1/weather/ask \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_PROD" \
+  -d '{"query":"weather in Eilat this week, metric"}' | jq
+```
 
 ---
 
